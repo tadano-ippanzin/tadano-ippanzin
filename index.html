@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ギアオタッド暗号-GearOtad converter</title>
+    <style>
+        body { font-family: sans-serif; background: #f0f2f5; padding: 20px; display: flex; justify-content: center; }
+        .card { background: white; width: 100%; max-width: 500px; padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h1 { text-align: center; font-size: 1.2em; color: #1a73e8; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        textarea { width: 100%; height: 80px; padding: 12px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 16px; margin-bottom: 10px; outline: none; }
+        .btns { display: flex; gap: 8px; margin-bottom: 15px; }
+        button { flex: 1; padding: 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .enc { background: #1a73e8; color: white; }
+        .dec { background: #34a853; color: white; }
+        .swap { background: #5f6368; color: white; }
+        button:hover { opacity: 0.8; }
+        .result-box { background: #f8f9fa; border: 1px solid #ddd; padding: 15px; border-radius: 8px; margin-top: 10px; }
+        #resultText { font-family: 'Courier New', monospace; font-size: 1.2em; color: #d93025; word-break: break-all; display: block; margin-bottom: 10px; min-height: 1.4em; white-space: pre-wrap; }
+        .copy-btn { background: #fff; border: 1px solid #ccc; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+        .debug-info { font-size: 10px; color: #999; margin-top: 10px; white-space: pre-wrap; line-height: 1.4; border-top: 1px solid #eee; padding-top: 8px; }
+    </style>
+</head>
+<body>
+<div class="card">
+    <h1>ギアオタッド暗号変換ツール</h1>
+    <textarea id="input" placeholder="例: バナナやBanana等"></textarea>
+    <div class="btns">
+        <button class="enc" onclick="run(true)">暗号化</button>
+        <button class="dec" onclick="run(false)">復号化</button>
+        <button class="swap" onclick="swap()">入れ換える</button>
+    </div>
+    <div class="result-box">
+        <span id="resultText"></span>
+        <button class="copy-btn" onclick="copyResult()">クリップボードにコピー</button>
+    </div>
+    <div id="debug" class="debug-info">ここに工程が表示されます</div>
+</div>
+
+<script>
+// 基本変換マップ
+const rToK = {"shi":"し","chi":"ち","tsu":"つ","kya":"きゃ","kyu":"きゅ","kyo":"きょ","sha":"しゃ","shu":"しゅ","sho":"しょ","cha":"ちゃ","chu":"ちゅ","cho":"ちょ","nya":"にゃ","nyu":"にゅ","nyo":"にょ","hya":"ひゃ","hyu":"ひゃ","hyo":"ひょ","mya":"みゃ","myu":"みゅ","myo":"みょ","rya":"りゃ","ryu":"りゃ","ryo":"りょ","gya":"ぎゃ","gyu":"ぎゅ","gyo":"ぎょ","ja":"じゃ","ju":"じゅ","jo":"じょ","bya":"びゃ","byu":"びゅ","byo":"びょ","pya":"ぴゃ","pyu":"ぴゅ","pyo":"ぴょ","ka":"か","ki":"き","ku":"く","ke":"け","ko":"こ","sa":"さ","su":"す","se":"せ","so":"そ","ta":"た","te":"て","to":"と","na":"な","ni":"に","nu":"ぬ","ne":"ね","no":"の","ha":"は","hi":"ひ","fu":"ふ","he":"へ","ho":"ほ","ma":"ま","mi":"み","mu":"む","me":"め","mo":"も","ya":"や","yu":"ゆ","yo":"よ","ra":"ら","ri":"り","ru":"る","re":"れ","ro":"ろ","wa":"わ","wo":"を","nn":"ん","ga":"が","gi":"ぎ","gu":"ぐ","ge":"げ","go":"ご","za":"ざ","ji":"じ","zu":"ず","ze":"ぜ","zo":"ぞ","da":"だ","di":"ぢ","du":"づ","de":"で","do":"ど","ba":"ば","bi":"び","bu":"ぶ","be":"べ","bo":"ぼ","pa":"ぱ","pi":"ぴ","pu":"ぷ","pe":"ぺ","po":"ぽ","a":"あ","i":"い","u":"う","e":"え","o":"お"};
+const kToR = Object.fromEntries(Object.entries(rToK).map(([k,v])=>[v,k]));
+const kToM = {"ぬ":"1","ふ":"2","あ":"3","う":"4","え":"5","お":"6","や":"7","ゆ":"8","よ":"9","わ":"0","ほ":"-","へ":"^","た":"Q","て":"W","い":"E","す":"R","か":"T","ん":"Y","な":"U","に":"I","ら":"O","せ":"P","だ":"@","む":"[","ち":"A","と":"S","し":"D","は":"F","き":"G","く":"H","ま":"J","の":"K","り":"L","れ":";","け":":","つ":"Z","さ":"X","そ":"C","ひ":"V","こ":"B","み":"N","も":"M","ね":",","る":".","め":"/","ー":"-"};
+const mToK = Object.fromEntries(Object.entries(kToM).map(([k,v])=>[v,k]));
+
+function kataToHira(str) { return str.replace(/[ァ-ヶ]/g, s => String.fromCharCode(s.charCodeAt(0) - 0x60)); }
+function rot47(t){ return t.split('').map(c=>{let n=c.charCodeAt(0);return(n>=33&&n<=126)?String.fromCharCode(33+((n-33+47)%94)):c}).join('');}
+
+// エニグマ：全文字対応かつ位置ズレを完全修正
+function enigmaStep(c, pos, reverse) {
+    let n = c.charCodeAt(0);
+    let shift = pos % 94; 
+    if (n >= 33 && n <= 126) {
+        if (!reverse) {
+            return String.fromCharCode(33 + ((n - 33 + shift) % 94));
+        } else {
+            return String.fromCharCode(33 + ((n - 33 - shift + 94) % 94));
+        }
+    }
+    return c;
+}
+
+function run(isEnc) {
+    let input = document.getElementById('input').value;
+    if(!input) return;
+    let res = "";
+    if(isEnc) {
+        let s0 = kataToHira(input.toLowerCase());
+        const sk = Object.keys(rToK).sort((a,b)=>b.length - a.length);
+        for(let k of sk){ s0 = s0.split(k).join(rToK[k]); }
+        let s1 = s0.split('').map(c=>kToM[c]||c).join('');
+        let s2 = rot47(s1);
+        // エニグマ変換
+        let s3 = s2.split('').map((c, i) => enigmaStep(c, i, false)).join('');
+        res = s3.split('').reverse().join('');
+        document.getElementById('debug').innerText = `[暗号化] 完了`;
+    } else {
+        let s1 = input.split('').reverse().join('');
+        // エニグマ戻し
+        let s2 = s1.split('').map((c, i) => enigmaStep(c, i, true)).join('');
+        let s3 = rot47(s2);
+        let s4 = s3.split('').map(c=>mToK[c]||c).join('');
+        const sk = Object.keys(kToR).sort((a,b)=>b.length - a.length);
+        for(let k of sk){ s4 = s4.split(k).join(kToR[k]); }
+        res = s4;
+        document.getElementById('debug').innerText = `[復号化] 完了`;
+    }
+    document.getElementById('resultText').innerText = res;
+}
+
+function swap(){
+    const currentRes = document.getElementById('resultText').innerText;
+    if(currentRes) document.getElementById('input').value = currentRes;
+}
+
+function copyResult(){
+    const t = document.getElementById('resultText').innerText;
+    if(!t) return;
+    // 古い端末でも動くコピー方式
+    const textArea = document.createElement("textarea");
+    textArea.value = t;
+    document.body.appendChild(textArea);
+    textArea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textArea);
+    alert("コピーしました");
+}
+</script>
+</body>
+</html>
