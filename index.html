@@ -5,32 +5,64 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ギアオタッド暗号</title>
     <style>
-        body { font-family: sans-serif; text-align: center; padding: 20px; background-color: #eef2f3; }
-        .container { max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
-        textarea { width: 95%; height: 120px; margin: 10px 0; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px; box-sizing: border-box; }
+        :root { --val: 238; }
+        body { 
+            font-family: sans-serif; text-align: center; padding: 20px; 
+            background-color: rgb(var(--val), var(--val), var(--val)); 
+            color: rgb(calc(255 - var(--val)), calc(255 - var(--val)), calc(255 - var(--val))); 
+            transition: 0.1s; 
+        }
+        .mode-slider-container { margin-bottom: 20px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        input[type="range"] { width: 200px; cursor: pointer; }
+
+        .container { 
+            max-width: 600px; margin: auto; padding: 20px; border-radius: 12px; transition: 0.1s;
+            /* 背景が暗くなるほどボックスも暗く、でも背景よりは少し明るく */
+            background-color: rgb(calc(var(--val) + 15), calc(var(--val) + 15), calc(var(--val) + 15));
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            border: 1px solid rgba(128,128,128,0.2);
+        }
+
+        textarea { 
+            width: 95%; height: 120px; margin: 10px 0; padding: 12px; border-radius: 8px; font-size: 16px; box-sizing: border-box; display: block; margin-left: auto; margin-right: auto; transition: 0.1s;
+            background-color: rgb(calc(var(--val) - 10), calc(var(--val) - 10), calc(var(--val) - 10));
+            color: rgb(calc(255 - var(--val)), calc(255 - var(--val)), calc(255 - var(--val)));
+            border: 2px solid rgba(128,128,128,0.5);
+        }
         textarea:focus { border-color: #007bff; outline: none; }
+
+        .counter { text-align: right; font-size: 12px; margin-right: 2.5%; margin-top: -8px; margin-bottom: 10px; opacity: 0.7; }
         .btn-group { display: flex; justify-content: center; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+        
         button { padding: 10px 18px; font-size: 15px; cursor: pointer; border: none; border-radius: 6px; background-color: #007bff; color: white; transition: 0.2s; font-weight: bold; }
-        button:hover { background-color: #0056b3; transform: translateY(-1px); }
+        button:hover { filter: brightness(1.2); transform: translateY(-1px); }
         .swap-btn { background-color: #6f42c1; }
         .copy-btn { background-color: #28a745; }
-        .tweet-btn { background-color: #000000; }
+        .tweet-btn { background-color: #000000; border: 1px solid #555; }
         .delete-btn { background-color: #dc3545; }
-        .label { font-weight: bold; display: block; margin-top: 15px; text-align: left; margin-left: 2.5%; color: #333; }
-        hr { border: 0; border-top: 1px solid #eee; margin: 20px 0; }
+
+        .label { font-weight: bold; display: block; margin-top: 15px; text-align: left; margin-left: 2.5%; }
+        hr { border: 0; border-top: 1px solid rgba(128,128,128,0.3); margin: 20px 0; }
     </style>
 </head>
 <body>
 
+<div class="mode-slider-container">
+    <span>ダークサイド</span>
+    <input type="range" id="themeSlider" min="20" max="255" value="238" oninput="updateTheme(this.value)">
+    <span>ライトサイド</span>
+</div>
+
 <div class="container">
-    <h2>⚙️ ギアオタッド暗号</h2>
+    <h2>⚙️ ギアオタッド暗号コンバータ</h2>
     
     <span class="label">入力（日本語・数字・暗号）:</span>
-    <textarea id="inputText" placeholder="ここにメッセージを入力..."></textarea>
+    <textarea id="inputText" placeholder="ここにメッセージを入力..." oninput="updateCounter()"></textarea>
+    <div id="charCount" class="counter">0 文字</div>
     
     <div class="btn-group">
         <button onclick="process('encrypt')">暗号化</button>
-        <button onclick="process('decrypt')">復号</button>
+        <button onclick="process('decrypt')">復号化</button>
         <button class="swap-btn" onclick="swapText()">入れ換える &#x1F503;</button>
         <button class="copy-btn" onclick="copyText('inputText')">入力をコピー</button>
     </div>
@@ -65,7 +97,73 @@
 
     const reverseMapping = Object.fromEntries(Object.entries(mapping).map(([k, v]) => [v, k]));
 
+    function updateTheme(val) {
+        document.documentElement.style.setProperty('--val', val);
+    }
+
+    function updateCounter() {
+        const text = document.getElementById('inputText').value;
+        const count = Array.from(text).length;
+        document.getElementById('charCount').textContent = count + " 文字";
+    }
+
     function process(mode) {
+        const input = document.getElementById('inputText').value;
+        const dict = (mode === 'encrypt') ? mapping : reverseMapping;
+        let result = "";
+        const chars = Array.from(input);
+        for (let char of chars) {
+            let hiraChar = char.replace(/[\u30a1-\u30f6]/g, s => String.fromCharCode(s.charCodeAt(0) - 0x60));
+            if (dict[hiraChar]) {
+                result += dict[hiraChar];
+            } else if (dict[char]) {
+                result += dict[char];
+            } else {
+                result += char;
+            }
+        }
+        document.getElementById('outputText').value = result;
+    }
+
+    function swapText() {
+        const inputArea = document.getElementById('inputText');
+        const outputArea = document.getElementById('outputText');
+        const temp = inputArea.value;
+        inputArea.value = outputArea.value;
+        outputArea.value = temp;
+        updateCounter();
+    }
+
+    function copyText(areaId) {
+        const text = document.getElementById(areaId);
+        if (!text.value) return;
+        text.select();
+        document.execCommand('copy');
+        alert("コピーしました！");
+    }
+
+    function clearAll() {
+        if(confirm("すべて消去しますか？")) {
+            document.getElementById('inputText').value = '';
+            document.getElementById('outputText').value = '';
+            updateCounter();
+        }
+    }
+
+    function tweet() {
+        const text = document.getElementById('outputText').value;
+        if (!text) return;
+        const tweetText = encodeURIComponent(
+            `ギアオタッド暗号『${text}』\n` +
+            `https://tadano-ippanzin.github.io/gearOtad/\n` +
+            `製作者:@tadanoippanjhin\n` +
+            `#ギアオタッド暗号`
+        );
+        window.open(`https://twitter.com/intent/tweet?text=${tweetText}`, '_blank');
+    }
+</script>
+</body>
+</html>    function process(mode) {
         const input = document.getElementById('inputText').value;
         const dict = (mode === 'encrypt') ? mapping : reverseMapping;
         let result = "";
