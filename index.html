@@ -223,57 +223,5 @@
         );
         window.open(`https://twitter.com/intent/tweet?text=${tweetText}`, '_blank');
     }
-</script>
-</body>
-        function process(mode) {
-        const input = document.getElementById('inputText').value;
-        const dict = (mode === 'encrypt') ? mapping : reverseMapping;
-        let result = "";
-        const chars = Array.from(input);
-        for (let char of chars) {
-            let hiraChar = char.replace(/[\u30a1-\u30f6]/g, s => String.fromCharCode(s.charCodeAt(0) - 0x60));
-            if (dict[hiraChar]) {
-                result += dict[hiraChar];
-            } else if (dict[char]) {
-                result += dict[char];
-            } else {
-                result += char;
-            }
-        }
-        document.getElementById('outputText').value = result;
-    }
-
-    function swapText() {
-        const inputArea = document.getElementById('inputText');
-        const outputArea = document.getElementById('outputText');
-        const temp = inputArea.value;
-        inputArea.value = outputArea.value;
-        outputArea.value = temp;
-    }
-
-    function copyText(areaId) {
-        const text = document.getElementById(areaId);
-        if (!text.value) return;
-        text.select();
-        document.execCommand('copy');
-        alert("コピーしました！");
-    }
-
-    function clearAll() {
-        if(confirm("すべて消去しますか？")) {
-            document.getElementById('inputText').value = '';
-            document.getElementById('outputText').value = '';
-        }
-    }
-
-    function tweet() {
-        const text = document.getElementById('outputText').value;
-        if (!text) return;
-        const tweetText = encodeURIComponent("ギアオタッド暗号で変換しました！\n" + text + "\n#ギアオタッド暗号");
-        window.open(`https://twitter.com/intent/tweet?text=${tweetText}`, '_blank');
-    }
-</script>
-
-</body>
 </html>
 <!--ここまで見たなら変換するはず。そうに決まってる。-->
