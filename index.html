@@ -7,67 +7,19 @@
     <link rel="icon" href="https://assets.st-note.com/img/1766740914-5chXSxNAGbfo69q2YEz70pn1.png?width=500&height=500&fit=crop" type="image/png">
     <style>
         :root { --val: 30; }
-        body { 
-            font-family: 'Segoe UI', sans-serif; 
-            text-align: center; 
-            padding: 20px; 
-            background-color: rgb(var(--val), var(--val), var(--val)); 
-            color: rgb(calc(255 - var(--val)), calc(255 - var(--val)), calc(255 - var(--val))); 
-            transition: background-color 0.3s, color 0.3s; 
-            margin: 0; 
-            overflow-x: hidden;
-            min-height: 100vh;
-        }
-        .bg-gear {
-            position: fixed;
-            bottom: -10vmin;
-            right: -10vmin;
-            font-size: 80vmin;
-            z-index: -1;
-            opacity: 0.05;
-            user-select: none;
-            pointer-events: none;
-            color: rgb(calc(255 - var(--val)), calc(255 - var(--val)), calc(255 - var(--val)));
-            animation: spin 60s linear infinite;
-        }
+        body { font-family: 'Segoe UI', sans-serif; text-align: center; padding: 20px; background-color: rgb(var(--val), var(--val), var(--val)); color: rgb(calc(255 - var(--val)), calc(255 - var(--val)), calc(255 - var(--val))); transition: 0.3s; margin: 0; overflow-x: hidden; min-height: 100vh; }
+        .bg-gear { position: fixed; bottom: -10vmin; right: -10vmin; font-size: 80vmin; z-index: -1; opacity: 0.05; user-select: none; pointer-events: none; color: rgb(calc(255 - var(--val)), calc(255 - var(--val)), calc(255 - var(--val))); animation: spin 60s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .mode-slider-container { margin: 10px 0 20px 0; display: flex; align-items: center; justify-content: center; gap: 10px; font-weight: bold; }
         input[type="range"] { width: 200px; cursor: pointer; accent-color: #6f42c1; }
-        .container { 
-            max-width: 600px; 
-            margin: auto; 
-            padding: 30px 20px; 
-            border-radius: 16px; 
-            background-color: rgba(calc(var(--val) + 15), calc(var(--val) + 15), calc(var(--val) + 15), 0.85); 
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            box-shadow: 0 15px 35px rgba(0,0,0,0.4); 
-            border: 1px solid rgba(128,128,128,0.2); 
-        }
+        .container { max-width: 600px; margin: auto; padding: 30px 20px; border-radius: 16px; background-color: rgba(calc(var(--val) + 15), calc(var(--val) + 15), calc(var(--val) + 15), 0.85); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-shadow: 0 15px 35px rgba(0,0,0,0.4); border: 1px solid rgba(128,128,128,0.2); }
         .logo-wrapper { margin-bottom: 20px; }
-        .main-logo {
-            max-width: 350px;
-            width: 95%;
-            height: auto;
-            filter: drop-shadow(0 0 10px rgba(255,255,255, calc((255 - var(--val)) / 1200)));
-            transition: filter 0.3s ease;
-        }
-        textarea { 
-            width: 95%; height: 120px; margin: 15px auto; padding: 15px; border-radius: 8px; font-size: 16px; box-sizing: border-box; display: block; 
-            background-color: rgba(calc(var(--val) - 10), calc(var(--val) - 10), calc(var(--val) - 10), 0.9); 
-            color: rgb(calc(255 - var(--val)), calc(255 - var(--val)), calc(255 - var(--val))); 
-            border: 2px solid rgba(128,128,128,0.3); 
-            transition: 0.2s;
-            resize: vertical;
-        }
+        .main-logo { max-width: 350px; width: 95%; height: auto; filter: drop-shadow(0 0 10px rgba(255,255,255, calc((255 - var(--val)) / 1200))); transition: 0.3s; }
+        textarea { width: 95%; height: 120px; margin: 15px auto; padding: 15px; border-radius: 8px; font-size: 16px; box-sizing: border-box; display: block; background-color: rgba(calc(var(--val) - 10), calc(var(--val) - 10), calc(var(--val) - 10), 0.9); color: rgb(calc(255 - var(--val)), calc(255 - var(--val)), calc(255 - var(--val))); border: 2px solid rgba(128,128,128,0.3); transition: 0.2s; resize: vertical; }
+        .history-container { margin: 10px 0; }
+        select { width: 95%; padding: 10px; border-radius: 8px; background: rgba(calc(var(--val) + 20), calc(var(--val) + 20), calc(var(--val) + 20), 0.9); color: rgb(calc(255 - var(--val)), calc(255 - var(--val)), calc(255 - var(--val))); border: 1px solid rgba(128,128,128,0.5); cursor: pointer; }
         .btn-group { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
-        button { 
-            padding: 12px 18px; font-size: 15px; cursor: pointer; border-radius: 8px; 
-            transition: 0.3s; font-weight: bold;
-            background-color: rgb(calc(255 - var(--val)), calc(255 - var(--val)), calc(255 - var(--val)));
-            color: rgb(var(--val), var(--val), var(--val));
-            border: 1px solid rgba(128,128,128,0.5);
-        }
+        button { padding: 12px 18px; font-size: 15px; cursor: pointer; border-radius: 8px; transition: 0.3s; font-weight: bold; background-color: rgb(calc(255 - var(--val)), calc(255 - var(--val)), calc(255 - var(--val))); color: rgb(var(--val), var(--val), var(--val)); border: 1px solid rgba(128,128,128,0.5); }
         button:hover { transform: translateY(-2px); filter: brightness(0.8); }
         .swap-btn { border: 2px solid #6f42c1; } 
         .tweet-btn { background-color: #000; color: #fff; border: 1px solid #555; }
@@ -87,6 +39,11 @@
     <div class="container">
         <div class="logo-wrapper">
             <img src="https://assets.st-note.com/production/uploads/images/239016490/rectangle_large_type_2_c160e3917400173cbde2ae9e19b03d89.png?width=2000&height=2000&fit=bounds&quality=85" alt="gearOtad" class="main-logo">
+        </div>
+        <div class="history-container">
+            <select id="historySelect" onchange="loadHistory()">
+                <option value="">-- 変換履歴 --</option>
+            </select>
         </div>
         <span class="label">入力:</span>
         <textarea id="inputText" placeholder="ここにメッセージを入力..." oninput="updateCounter()"></textarea>
@@ -111,24 +68,40 @@
     <script>
         const mapping = {'あ':'ぬ','い':'わ','う':'ん','え':'え','お':'お','か':'き','き':'く','く':'け','け':'こ','こ':'か','さ':'し','し':'す','す':'せ','せ':'そ','そ':'さ','た':'ち','ち':'つ','つ':'て','て':'と','と':'た','な':'に','に':'ぬ','ぬ':'ね','ね':'の','の':'な','は':'ひ','ひ':'ふ','ふ':'へ','へ':'ほ','ほ':'は','ま':'み','み':'む','む':'め','め':'も','も':'ま','や':'ゆ','ゆ':'よ','よ':'や','ら':'り','り':'る','る':'れ','れ':'ろ','ろ':'ら','わ':'を','を':'ん','ん':'わ','0':'⦰','1':'⦑','2':'⦒','3':'⦓','4':'⦔','5':'⦕','6':'⦖','7':'⦗','8':'⦘','9':'⦙'};
         const rev = Object.fromEntries(Object.entries(mapping).map(([k,v])=>[v,k]));
+        let history = JSON.parse(localStorage.getItem('go_history') || '[]');
+
         function updateTheme(val) { document.documentElement.style.setProperty('--val', val); }
         function updateCounter() { document.getElementById('charCount').textContent = Array.from(document.getElementById('inputText').value).length + " 文字"; updateDiff(); }
         function updateDiff() {
-            const inLen = Array.from(document.getElementById('inputText').value).length, outLen = Array.from(document.getElementById('outputText').value).length, diff = outLen - inLen, target = document.getElementById('diffDisplay');
-            if (inLen === 0 && outLen === 0) { target.textContent = "±0"; target.style.color = "gray"; }
-            else if (diff > 0) { target.textContent = "+" + diff; target.style.color = "#ff4d4d"; }
-            else if (diff < 0) { target.textContent = diff; target.style.color = "#4da6ff"; }
-            else { target.textContent = "±0"; target.style.color = "gray"; }
+            const i = Array.from(document.getElementById('inputText').value).length, o = Array.from(document.getElementById('outputText').value).length, d = o - i, t = document.getElementById('diffDisplay');
+            t.textContent = (d > 0 ? "+" : "") + d; t.style.color = d === 0 ? "gray" : (d > 0 ? "#ff4d4d" : "#4da6ff");
         }
         function process(m) {
             const input = document.getElementById('inputText').value, d = (m === 'encrypt') ? mapping : rev;
             let res = ""; for (let c of Array.from(input)) { let h = c.replace(/[\u30a1-\u30f6]/g, s => String.fromCharCode(s.charCodeAt(0) - 0x60)); res += (d[h] || d[c] || c); }
             document.getElementById('outputText').value = res; updateDiff();
+            if(res && m === 'encrypt') saveHistory(input, res);
+        }
+        function saveHistory(i, o) {
+            history.unshift({i, o, t: new Date().toLocaleTimeString()});
+            history = history.slice(0, 10);
+            localStorage.setItem('go_history', JSON.stringify(history));
+            renderHistory();
+        }
+        function renderHistory() {
+            const s = document.getElementById('historySelect');
+            s.innerHTML = '<option value="">-- 変換履歴 --</option>';
+            history.forEach((h, i) => { s.innerHTML += `<option value="${i}">${h.t}: ${h.i.substring(0,10)}...</option>`; });
+        }
+        function loadHistory() {
+            const i = document.getElementById('historySelect').value;
+            if(i !== "") { document.getElementById('inputText').value = history[i].i; document.getElementById('outputText').value = history[i].o; updateCounter(); }
         }
         function swapText() { const i = document.getElementById('inputText'), o = document.getElementById('outputText'); [i.value, o.value] = [o.value, i.value]; updateCounter(); }
-        function copyText(id) { const t = document.getElementById(id); if(!t.value) return; t.select(); document.execCommand('copy'); alert("コピーしました！"); }
-        function clearAll() { if(confirm("すべて消去しますか？")) { document.getElementById('inputText').value=''; document.getElementById('outputText').value=''; updateCounter(); } }
-        function tweet() { const t = document.getElementById('outputText').value; if(!t) return; window.open(`https://twitter.com/intent/tweet?text=` + encodeURIComponent(`ギアオタッド暗号『${t}』\nhttps://tadano-ippanzin.github.io/gearOtad/\n#ギアオタッド暗号`), '_blank'); }
+        function copyText(id) { const t = document.getElementById(id); if(!t.value) return; t.select(); document.execCommand('copy'); }
+        function clearAll() { if(confirm("消去？")) { document.getElementById('inputText').value=''; document.getElementById('outputText').value=''; updateCounter(); } }
+        function tweet() { const t = document.getElementById('outputText').value; if(!t) return; window.open(`https://twitter.com/intent/tweet?text=` + encodeURIComponent(`ギアオタッド暗号『${t}』\nhttps://tadano-ippanzin.github.io/gearOtad/`), '_blank'); }
+        renderHistory();
     </script>
 </body>
 </html>
