@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>gearOtad - ギアオタッド暗号</title>
-    <link rel="icon" href="https://assets.st-note.com/img/1766740914-5chXSxNAGbfo69q2YEz70pn1.png?width=2000&height=2000&fit=bounds&quality=85" type="image/png">
+    <link rel="icon" href="https://assets.st-note.com/img/1766740914-5chXSxNAGbfo69q2YEz70pn1.png?width=500&height=500&fit=crop" type="image/png">
     <style>
         :root { --val: 30; }
         
@@ -59,7 +59,6 @@
             max-width: 350px;
             width: 95%;
             height: auto;
-            /* ダークサイドでもロゴを浮かせる影 */
             filter: drop-shadow(0 0 10px rgba(255,255,255, calc((255 - var(--val)) / 1200)));
             transition: filter 0.3s ease;
         }
@@ -89,12 +88,6 @@
         hr { border: 0; border-top: 1px solid rgba(128,128,128,0.3); margin: 25px 0; }
         .counter { text-align: right; font-size: 12px; margin-right: 2.5%; margin-top: -8px; margin-bottom: 10px; opacity: 0.7; }
         .diff-counter { font-family: monospace; font-weight: bold; }
-
-        @keyframes shake {
-            0% { transform: translate(1px, 1px) rotate(0deg); }
-            10% { transform: translate(-1px, -2px) rotate(-1deg); }
-            100% { transform: translate(1px, -2px) rotate(-1deg); }
-        }
     </style>
 </head>
 <body>
@@ -111,7 +104,7 @@
             <img src="https://assets.st-note.com/production/uploads/images/239016490/rectangle_large_type_2_c160e3917400173cbde2ae9e19b03d89.png?width=2000&height=2000&fit=bounds&quality=85" alt="gearOtad" class="main-logo">
         </div>
 
-        <span class="label">入力 (日本語・数字・暗号):</span>
+        <span class="label">入力:</span>
         <textarea id="inputText" placeholder="ここにメッセージを入力..." oninput="updateCounter()"></textarea>
         <div id="charCount" class="counter">0 文字</div>
         
@@ -119,7 +112,6 @@
             <button onclick="process('encrypt')">暗号化</button>
             <button onclick="process('decrypt')">復号化</button>
             <button class="swap-btn" onclick="swapText()">入れ換える &#x1F503;</button>
-            <button class="copy-btn" onclick="copyText('inputText')">入力をコピー</button>
         </div>
         
         <hr>
@@ -140,66 +132,24 @@
     <script>
         const mapping = {'あ':'ぬ','い':'わ','う':'ん','え':'え','お':'お','か':'き','き':'く','く':'け','け':'こ','こ':'か','さ':'し','し':'す','す':'せ','せ':'そ','そ':'さ','た':'ち','ち':'つ','つ':'て','て':'と','と':'た','な':'に','に':'ぬ','ぬ':'ね','ね':'の','の':'な','は':'ひ','ひ':'ふ','ふ':'へ','へ':'ほ','ほ':'は','ま':'み','み':'む','む':'め','め':'も','も':'ま','や':'ゆ','ゆ':'よ','よ':'や','ら':'り','り':'る','る':'れ','れ':'ろ','ろ':'ら','わ':'を','を':'ん','ん':'わ','0':'⦰','1':'⦑','2':'⦒','3':'⦓','4':'⦔','5':'⦕','6':'⦖','7':'⦗','8':'⦘','9':'⦙'};
         const rev = Object.fromEntries(Object.entries(mapping).map(([k,v])=>[v,k]));
-        
         function updateTheme(val) { document.documentElement.style.setProperty('--val', val); }
-        
-        function updateCounter() { 
-            document.getElementById('charCount').textContent = Array.from(document.getElementById('inputText').value).length + " 文字"; 
-            updateDiff();
-        }
-        
+        function updateCounter() { document.getElementById('charCount').textContent = Array.from(document.getElementById('inputText').value).length + " 文字"; updateDiff(); }
         function updateDiff() {
-            const inLen = Array.from(document.getElementById('inputText').value).length;
-            const outLen = Array.from(document.getElementById('outputText').value).length;
-            const diff = outLen - inLen;
-            const target = document.getElementById('diffDisplay');
+            const inLen = Array.from(document.getElementById('inputText').value).length, outLen = Array.from(document.getElementById('outputText').value).length, diff = outLen - inLen, target = document.getElementById('diffDisplay');
             if (inLen === 0 && outLen === 0) { target.textContent = "±0"; target.style.color = "gray"; }
             else if (diff > 0) { target.textContent = "+" + diff; target.style.color = "#ff4d4d"; }
             else if (diff < 0) { target.textContent = diff; target.style.color = "#4da6ff"; }
             else { target.textContent = "±0"; target.style.color = "gray"; }
         }
-
         function process(m) {
-            const input = document.getElementById('inputText').value;
-            const d = (m === 'encrypt') ? mapping : rev;
-            let res = "";
-            for (let c of Array.from(input)) {
-                let h = c.replace(/[\u30a1-\u30f6]/g, s => String.fromCharCode(s.charCodeAt(0) - 0x60));
-                res += (d[h] || d[c] || c);
-            }
-            document.getElementById('outputText').value = res;
-            updateDiff();
+            const input = document.getElementById('inputText').value, d = (m === 'encrypt') ? mapping : rev;
+            let res = ""; for (let c of Array.from(input)) { let h = c.replace(/[\u30a1-\u30f6]/g, s => String.fromCharCode(s.charCodeAt(0) - 0x60)); res += (d[h] || d[c] || c); }
+            document.getElementById('outputText').value = res; updateDiff();
         }
-        
-        function swapText() { 
-            const i = document.getElementById('inputText'), o = document.getElementById('outputText'); 
-            [i.value, o.value] = [o.value, i.value]; 
-            updateCounter(); 
-        }
-        
+        function swapText() { const i = document.getElementById('inputText'), o = document.getElementById('outputText'); [i.value, o.value] = [o.value, i.value]; updateCounter(); }
         function copyText(id) { const t = document.getElementById(id); if(!t.value) return; t.select(); document.execCommand('copy'); alert("コピーしました！"); }
-        
-        function clearAll() { 
-            if(confirm("すべて消去しますか？")) { 
-                document.getElementById('inputText').value=''; document.getElementById('outputText').value=''; updateCounter(); 
-            } 
-        }
-        
-        function tweet() {
-            const t = document.getElementById('outputText').value; if(!t) return;
-            window.open(`https://twitter.com/intent/tweet?text=` + encodeURIComponent(`ギアオタッド暗号『${t}』\nhttps://tadano-ippanzin.github.io/gearOtad/\n#ギアオタッド暗号`), '_blank');
-        }
-
-        // コナミコマンド
-        let kCode = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'], kIdx = 0;
-        document.addEventListener('keydown', (e) => {
-            if (e.key === kCode[kIdx]) { kIdx++; if (kIdx === kCode.length) { activateSecret(); kIdx = 0; } } else { kIdx = 0; }
-        });
-        function activateSecret() {
-            alert('⚙️ OVERDRIVE ⚙️');
-            document.getElementById('gear').style.animation = "spin 2s linear infinite";
-            document.body.style.animation = "shake 0.2s infinite";
-        }
+        function clearAll() { if(confirm("すべて消去しますか？")) { document.getElementById('inputText').value=''; document.getElementById('outputText').value=''; updateCounter(); } }
+        function tweet() { const t = document.getElementById('outputText').value; if(!t) return; window.open(`https://twitter.com/intent/tweet?text=` + encodeURIComponent(`ギアオタッド暗号『${t}』\nhttps://tadano-ippanzin.github.io/gearOtad/\n#ギアオタッド暗号`), '_blank'); }
     </script>
 </body>
 </html>
