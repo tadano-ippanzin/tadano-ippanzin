@@ -5,24 +5,43 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ギアオタッド暗号</title>
     <style>
-        :root { --val: 120; }
-        body { font-family: sans-serif; text-align: center; padding: 20px; background-color: rgb(var(--val), var(--val), var(--val)); color: rgb(calc(255 - var(--val)), calc(255 - var(--val)), calc(255 - var(--val))); transition: background-color 0.1s; margin: 0; }
+        /* 初期値を最ダークサイド(30)に変更 */
+        :root { --val: 30; }
+        body { 
+            font-family: sans-serif; text-align: center; padding: 20px; 
+            background-color: rgb(var(--val), var(--val), var(--val)); 
+            /* 中間色でも溶けないように文字色のコントラストを強化 */
+            color: rgb(calc(255 - var(--val)), calc(255 - var(--val)), calc(255 - var(--val))); 
+            transition: background-color 0.1s; margin: 0; 
+        }
         .mode-slider-container { margin: 10px 0 20px 0; display: flex; align-items: center; justify-content: center; gap: 10px; }
         input[type="range"] { width: 200px; cursor: pointer; }
-        .container { max-width: 600px; margin: auto; padding: 20px; border-radius: 12px; background-color: rgb(calc(var(--val) + 15), calc(var(--val) + 15), calc(var(--val) + 15)); box-shadow: 0 10px 25px rgba(0,0,0,0.4); border: 1px solid rgba(128,128,128,0.3); }
-        textarea { width: 95%; height: 120px; margin: 10px 0; padding: 12px; border-radius: 8px; font-size: 16px; box-sizing: border-box; display: block; margin-left: auto; margin-right: auto; background-color: rgb(calc(var(--val) - 10), calc(var(--val) - 10), calc(var(--val) - 10)); color: rgb(calc(255 - var(--val)), calc(255 - var(--val)), calc(255 - var(--val))); border: 2px solid rgba(128,128,128,0.5); }
+        .container { 
+            max-width: 600px; margin: auto; padding: 20px; border-radius: 12px; 
+            background-color: rgb(calc(var(--val) + 15), calc(var(--val) + 15), calc(var(--val) + 15)); 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.4); border: 1px solid rgba(128,128,128,0.3); 
+        }
+        textarea { 
+            width: 95%; height: 120px; margin: 10px 0; padding: 12px; border-radius: 8px; font-size: 16px; box-sizing: border-box; display: block; margin-left: auto; margin-right: auto; 
+            background-color: rgb(calc(var(--val) - 10), calc(var(--val) - 10), calc(var(--val) - 10)); 
+            color: rgb(calc(255 - var(--val)), calc(255 - var(--val)), calc(255 - var(--val))); 
+            border: 2px solid rgba(128,128,128,0.5); 
+        }
         .btn-group { display: flex; justify-content: center; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
         button { padding: 10px 18px; font-size: 15px; cursor: pointer; border: none; border-radius: 6px; background-color: #007bff; color: white; transition: 0.2s; font-weight: bold; }
         .swap-btn { background-color: #6f42c1; } .copy-btn { background-color: #28a745; } .tweet-btn { background-color: #000000; border: 1px solid #555; } .delete-btn { background-color: #dc3545; }
         .label { font-weight: bold; display: block; margin-top: 15px; text-align: left; margin-left: 2.5%; }
         hr { border: 0; border-top: 1px solid rgba(128,128,128,0.3); margin: 20px 0; }
         .counter { text-align: right; font-size: 12px; margin-right: 2.5%; margin-top: -8px; margin-bottom: 10px; opacity: 0.8; }
+        
+        .label-container { display: flex; justify-content: space-between; align-items: center; margin-right: 2.5%; }
+        .diff-counter { font-family: monospace; font-weight: bold; font-size: 14px; }
     </style>
 </head>
 <body>
     <div class="mode-slider-container">
         <span>ダークサイド</span>
-        <input type="range" id="themeSlider" min="30" max="250" value="120" oninput="updateTheme(this.value)">
+        <input type="range" id="themeSlider" min="30" max="250" value="30" oninput="updateTheme(this.value)">
         <span>ライトサイド</span>
     </div>
     <div class="container">
@@ -37,7 +56,10 @@
             <button class="copy-btn" onclick="copyText('inputText')">入力をコピー</button>
         </div>
         <hr>
-        <span class="label">結果:</span>
+        <div class="label-container">
+            <span class="label">結果:</span>
+            <span id="diffDisplay" class="diff-counter" style="color: gray; margin-top: 15px;">±0</span>
+        </div>
         <textarea id="outputText" readonly placeholder="結果が表示されます..."></textarea>
         <div class="btn-group">
             <button class="copy-btn" onclick="copyText('outputText')">結果をコピー</button>
@@ -49,8 +71,35 @@
     <script>
         const mapping = {'あ':'ぬ','い':'わ','う':'ん','え':'え','お':'お','か':'き','き':'く','く':'け','け':'こ','こ':'か','さ':'し','し':'す','す':'せ','せ':'そ','そ':'さ','た':'ち','ち':'つ','つ':'て','て':'と','と':'た','な':'に','に':'ぬ','ぬ':'ね','ね':'の','の':'な','は':'ひ','ひ':'ふ','ふ':'へ','へ':'ほ','ほ':'は','ま':'み','み':'む','む':'め','め':'も','も':'ま','や':'ゆ','ゆ':'よ','よ':'や','ら':'り','り':'る','る':'れ','れ':'ろ','ろ':'ら','わ':'を','を':'ん','ん':'わ','0':'⦰','1':'⦑','2':'⦒','3':'⦓','4':'⦔','5':'⦕','6':'⦖','7':'⦗','8':'⦘','9':'⦙'};
         const rev = Object.fromEntries(Object.entries(mapping).map(([k,v])=>[v,k]));
+        
         function updateTheme(val) { document.documentElement.style.setProperty('--val', val); }
-        function updateCounter() { document.getElementById('charCount').textContent = Array.from(document.getElementById('inputText').value).length + " 文字"; }
+        
+        function updateCounter() { 
+            document.getElementById('charCount').textContent = Array.from(document.getElementById('inputText').value).length + " 文字"; 
+            updateDiff();
+        }
+        
+        function updateDiff() {
+            const inLen = Array.from(document.getElementById('inputText').value).length;
+            const outLen = Array.from(document.getElementById('outputText').value).length;
+            const diff = outLen - inLen;
+            const target = document.getElementById('diffDisplay');
+            
+            if (inLen === 0 && outLen === 0) {
+                target.textContent = "±0";
+                target.style.color = "gray";
+            } else if (diff > 0) {
+                target.textContent = "+" + diff;
+                target.style.color = "#ff4d4d";
+            } else if (diff < 0) {
+                target.textContent = diff;
+                target.style.color = "#4da6ff";
+            } else {
+                target.textContent = "±0";
+                target.style.color = "gray";
+            }
+        }
+
         function process(m) {
             const input = document.getElementById('inputText').value;
             const d = (m === 'encrypt') ? mapping : rev;
@@ -60,10 +109,25 @@
                 res += (d[h] || d[c] || c);
             }
             document.getElementById('outputText').value = res;
+            updateDiff();
         }
-        function swapText() { const i = document.getElementById('inputText'), o = document.getElementById('outputText'); [i.value, o.value] = [o.value, i.value]; updateCounter(); }
+        
+        function swapText() { 
+            const i = document.getElementById('inputText'), o = document.getElementById('outputText'); 
+            [i.value, o.value] = [o.value, i.value]; 
+            updateCounter(); 
+        }
+        
         function copyText(id) { const t = document.getElementById(id); if(!t.value) return; t.select(); document.execCommand('copy'); alert("コピーしました！"); }
-        function clearAll() { if(confirm("すべて消去しますか？")) { document.getElementById('inputText').value=''; document.getElementById('outputText').value=''; updateCounter(); } }
+        
+        function clearAll() { 
+            if(confirm("すべて消去しますか？")) { 
+                document.getElementById('inputText').value=''; 
+                document.getElementById('outputText').value=''; 
+                updateCounter(); 
+            } 
+        }
+        
         function tweet() {
             const t = document.getElementById('outputText').value; if(!t) return;
             window.open(`https://twitter.com/intent/tweet?text=` + encodeURIComponent(`ギアオタッド暗号『${t}』\nhttps://tadano-ippanzin.github.io/gearOtad/\n製作者:@tadanoippanjhin\n#ギアオタッド暗号`), '_blank');
