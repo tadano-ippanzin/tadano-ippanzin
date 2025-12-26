@@ -3,64 +3,136 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ギアオタッド暗号</title>
+    <title>gearOtad - ギアオタッド暗号</title>
+    <link rel="icon" href="favicon.png" type="image/png">
     <style>
-        /* 初期値を最ダークサイド(30)に変更 */
         :root { --val: 30; }
-        body { 
-            font-family: sans-serif; text-align: center; padding: 20px; 
-            background-color: rgb(var(--val), var(--val), var(--val)); 
-            /* 中間色でも溶けないように文字色のコントラストを強化 */
-            color: rgb(calc(255 - var(--val)), calc(255 - var(--val)), calc(255 - var(--val))); 
-            transition: background-color 0.1s; margin: 0; 
-        }
-        .mode-slider-container { margin: 10px 0 20px 0; display: flex; align-items: center; justify-content: center; gap: 10px; }
-        input[type="range"] { width: 200px; cursor: pointer; }
-        .container { 
-            max-width: 600px; margin: auto; padding: 20px; border-radius: 12px; 
-            background-color: rgb(calc(var(--val) + 15), calc(var(--val) + 15), calc(var(--val) + 15)); 
-            box-shadow: 0 10px 25px rgba(0,0,0,0.4); border: 1px solid rgba(128,128,128,0.3); 
-        }
-        textarea { 
-            width: 95%; height: 120px; margin: 10px 0; padding: 12px; border-radius: 8px; font-size: 16px; box-sizing: border-box; display: block; margin-left: auto; margin-right: auto; 
-            background-color: rgb(calc(var(--val) - 10), calc(var(--val) - 10), calc(var(--val) - 10)); 
-            color: rgb(calc(255 - var(--val)), calc(255 - var(--val)), calc(255 - var(--val))); 
-            border: 2px solid rgba(128,128,128,0.5); 
-        }
-        .btn-group { display: flex; justify-content: center; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
-        button { padding: 10px 18px; font-size: 15px; cursor: pointer; border: none; border-radius: 6px; background-color: #007bff; color: white; transition: 0.2s; font-weight: bold; }
-        .swap-btn { background-color: #6f42c1; } .copy-btn { background-color: #28a745; } .tweet-btn { background-color: #000000; border: 1px solid #555; } .delete-btn { background-color: #dc3545; }
-        .label { font-weight: bold; display: block; margin-top: 15px; text-align: left; margin-left: 2.5%; }
-        hr { border: 0; border-top: 1px solid rgba(128,128,128,0.3); margin: 20px 0; }
-        .counter { text-align: right; font-size: 12px; margin-right: 2.5%; margin-top: -8px; margin-bottom: 10px; opacity: 0.8; }
         
-        .label-container { display: flex; justify-content: space-between; align-items: center; margin-right: 2.5%; }
-        .diff-counter { font-family: monospace; font-weight: bold; font-size: 14px; }
+        body { 
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+            text-align: center; 
+            padding: 20px; 
+            background-color: rgb(var(--val), var(--val), var(--val)); 
+            color: rgb(calc(255 - var(--val)), calc(255 - var(--val)), calc(255 - var(--val))); 
+            transition: background-color 0.3s, color 0.3s; 
+            margin: 0; 
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        /* 背景の巨大歯車 */
+        .bg-gear {
+            position: fixed;
+            bottom: -10vmin;
+            right: -10vmin;
+            font-size: 80vmin;
+            z-index: -1;
+            opacity: 0.05;
+            user-select: none;
+            pointer-events: none;
+            animation: spin 60s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .mode-slider-container { margin: 10px 0 20px 0; display: flex; align-items: center; justify-content: center; gap: 10px; font-weight: bold; }
+        input[type="range"] { width: 200px; cursor: pointer; accent-color: #6f42c1; }
+
+        .container { 
+            max-width: 600px; 
+            margin: auto; 
+            padding: 30px 20px; 
+            border-radius: 16px; 
+            background-color: rgba(calc(var(--val) + 15), calc(var(--val) + 15), calc(var(--val) + 15), 0.8); 
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.4); 
+            border: 1px solid rgba(128,128,128,0.2); 
+        }
+
+        /* ロゴ周りの調整 */
+        .logo-wrapper {
+            margin-bottom: 20px;
+        }
+        .main-logo {
+            max-width: 300px;
+            width: 85%;
+            height: auto;
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5));
+        }
+
+        textarea { 
+            width: 95%; height: 120px; margin: 15px auto; padding: 15px; border-radius: 8px; font-size: 16px; box-sizing: border-box; display: block; 
+            background-color: rgba(calc(var(--val) - 10), calc(var(--val) - 10), calc(var(--val) - 10), 0.9); 
+            color: rgb(calc(255 - var(--val)), calc(255 - var(--val)), calc(255 - var(--val))); 
+            border: 2px solid rgba(128,128,128,0.3); 
+            transition: 0.2s;
+            resize: vertical;
+        }
+        textarea:focus { outline: none; border-color: #6f42c1; }
+
+        .btn-group { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        button { 
+            padding: 12px 18px; font-size: 15px; cursor: pointer; border: none; border-radius: 8px; 
+            background-color: #007bff; color: white; transition: 0.2s; font-weight: bold; 
+        }
+        button:hover { transform: translateY(-2px); filter: brightness(1.1); }
+        
+        .swap-btn { background-color: #6f42c1; } 
+        .copy-btn { background-color: #28a745; } 
+        .tweet-btn { background-color: #000000; border: 1px solid #555; } 
+        .delete-btn { background-color: #dc3545; }
+        
+        .label { font-weight: bold; display: block; margin-top: 15px; text-align: left; margin-left: 2.5%; font-size: 0.9em; opacity: 0.8; }
+        hr { border: 0; border-top: 1px solid rgba(128,128,128,0.3); margin: 25px 0; }
+        .counter { text-align: right; font-size: 12px; margin-right: 2.5%; margin-top: -8px; margin-bottom: 10px; opacity: 0.7; }
+        .diff-counter { font-family: monospace; font-weight: bold; }
+
+        /* コナミコマンド用揺れ演出 */
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
     </style>
 </head>
 <body>
+    <div class="bg-gear" id="gear">⚙️</div>
+
     <div class="mode-slider-container">
         <span>ダークサイド</span>
         <input type="range" id="themeSlider" min="30" max="250" value="30" oninput="updateTheme(this.value)">
         <span>ライトサイド</span>
     </div>
+
     <div class="container">
-        <h2>ギアオタッド暗号コンバータ</h2>
+        <div class="logo-wrapper">
+            <img src="logo.png" alt="gearOtad" class="main-logo">
+        </div>
+
         <span class="label">入力 (日本語・数字・暗号):</span>
         <textarea id="inputText" placeholder="ここにメッセージを入力..." oninput="updateCounter()"></textarea>
         <div id="charCount" class="counter">0 文字</div>
+        
         <div class="btn-group">
             <button onclick="process('encrypt')">暗号化</button>
             <button onclick="process('decrypt')">復号化</button>
             <button class="swap-btn" onclick="swapText()">入れ換える &#x1F503;</button>
             <button class="copy-btn" onclick="copyText('inputText')">入力をコピー</button>
         </div>
+        
         <hr>
-        <div class="label-container">
-            <span class="label">結果:</span>
+        
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0 2.5%;">
+            <span class="label" style="margin-left: 0;">結果:</span>
             <span id="diffDisplay" class="diff-counter" style="color: gray; margin-top: 15px;">±0</span>
         </div>
         <textarea id="outputText" readonly placeholder="結果が表示されます..."></textarea>
+        
         <div class="btn-group">
             <button class="copy-btn" onclick="copyText('outputText')">結果をコピー</button>
             <button class="tweet-btn" onclick="tweet()">𝕏でポスト</button>
@@ -84,20 +156,10 @@
             const outLen = Array.from(document.getElementById('outputText').value).length;
             const diff = outLen - inLen;
             const target = document.getElementById('diffDisplay');
-            
-            if (inLen === 0 && outLen === 0) {
-                target.textContent = "±0";
-                target.style.color = "gray";
-            } else if (diff > 0) {
-                target.textContent = "+" + diff;
-                target.style.color = "#ff4d4d";
-            } else if (diff < 0) {
-                target.textContent = diff;
-                target.style.color = "#4da6ff";
-            } else {
-                target.textContent = "±0";
-                target.style.color = "gray";
-            }
+            if (inLen === 0 && outLen === 0) { target.textContent = "±0"; target.style.color = "gray"; }
+            else if (diff > 0) { target.textContent = "+" + diff; target.style.color = "#ff4d4d"; }
+            else if (diff < 0) { target.textContent = diff; target.style.color = "#4da6ff"; }
+            else { target.textContent = "±0"; target.style.color = "gray"; }
         }
 
         function process(m) {
@@ -122,15 +184,24 @@
         
         function clearAll() { 
             if(confirm("すべて消去しますか？")) { 
-                document.getElementById('inputText').value=''; 
-                document.getElementById('outputText').value=''; 
-                updateCounter(); 
+                document.getElementById('inputText').value=''; document.getElementById('outputText').value=''; updateCounter(); 
             } 
         }
         
         function tweet() {
             const t = document.getElementById('outputText').value; if(!t) return;
-            window.open(`https://twitter.com/intent/tweet?text=` + encodeURIComponent(`ギアオタッド暗号『${t}』\nhttps://tadano-ippanzin.github.io/gearOtad/\n製作者:@tadanoippanjhin\n#ギアオタッド暗号`), '_blank');
+            window.open(`https://twitter.com/intent/tweet?text=` + encodeURIComponent(`ギアオタッド暗号『${t}』\nhttps://tadano-ippanzin.github.io/gearOtad/\n#ギアオタッド暗号`), '_blank');
+        }
+
+        // コナミコマンド
+        let kCode = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'], kIdx = 0;
+        document.addEventListener('keydown', (e) => {
+            if (e.key === kCode[kIdx]) { kIdx++; if (kIdx === kCode.length) { activateSecret(); kIdx = 0; } } else { kIdx = 0; }
+        });
+        function activateSecret() {
+            alert('⚙️ OVERDRIVE ⚙️');
+            document.getElementById('gear').style.animation = "spin 2s linear infinite";
+            document.body.style.animation = "shake 0.2s infinite";
         }
     </script>
 </body>
