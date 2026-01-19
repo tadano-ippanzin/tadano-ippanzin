@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>gearOtad - ギアオタッド暗号</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-title" content="gearOtad">
+    <link rel="apple-touch-icon" href="https://assets.st-note.com/img/1766740914-5chXSxNAGbfo69q2YEz70pn1.png?width=500&height=500&fit=crop">
+    <link rel="icon" href="https://assets.st-note.com/img/1766740914-5chXSxNAGbfo69q2YEz70pn1.png?width=500&height=500&fit=crop" type="image/png">
+    <style>
+        :root { --val: 30; }
+        body { font-family: 'Segoe UI', sans-serif; text-align: center; padding: 20px; background-color: rgb(var(--val), var(--val), var(--val)); color: rgb(calc(255 - var(--val)), calc(255 - var(--val)), calc(255 - var(--val))); transition: 0.3s; margin: 0; min-height: 100vh; }
+        .bg-gear { position: fixed; bottom: -10vmin; right: -10vmin; font-size: 80vmin; z-index: -1; opacity: 0.05; user-select: none; pointer-events: none; animation: spin 60s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .mode-slider-container { margin: 10px 0 20px 0; display: flex; align-items: center; justify-content: center; gap: 10px; font-weight: bold; }
+        input[type="range"] { width: 200px; cursor: pointer; accent-color: #6f42c1; }
+        .container { max-width: 600px; margin: auto; padding: 30px 20px; border-radius: 16px; background-color: rgba(calc(var(--val) + 15), calc(var(--val) + 15), calc(var(--val) + 15), 0.85); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-shadow: 0 15px 35px rgba(0,0,0,0.4); border: 1px solid rgba(128,128,128,0.2); }
+        .logo-wrapper { margin-bottom: 20px; }
+        .main-logo { max-width: 350px; width: 95%; height: auto; transition: 0.3s; }
+        textarea { width: 95%; height: 120px; margin: 15px auto; padding: 15px; border-radius: 8px; font-size: 16px; box-sizing: border-box; display: block; background-color: rgba(calc(var(--val) - 10), calc(var(--val) - 10), calc(var(--val) - 10), 0.9); color: inherit; border: 2px solid rgba(128,128,128,0.3); resize: vertical; }
+        .history-box { margin: 10px 0; text-align: left; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; }
+        .history-controls { display: flex; gap: 5px; margin-bottom: 5px; flex-wrap: wrap; }
+        .history-list { max-height: 150px; overflow-y: auto; font-size: 13px; border: 1px solid rgba(128,128,128,0.3); border-radius: 5px; padding: 5px; }
+        .history-item { display: flex; align-items: center; gap: 5px; padding: 3px 0; border-bottom: 1px solid rgba(128,128,128,0.1); }
+        .history-item span { flex-grow: 1; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .btn-group { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        button { padding: 8px 15px; font-size: 14px; cursor: pointer; border-radius: 6px; transition: 0.3s; font-weight: bold; background-color: rgb(calc(255 - var(--val)), calc(255 - var(--val)), calc(255 - var(--val))); color: rgb(var(--val), var(--val), var(--val)); border: 1px solid rgba(128,128,128,0.5); }
+        button:hover { transform: translateY(-1px); filter: brightness(0.8); }
+        .btn-danger { background-color: #ff4d4d; color: white; border: none; }
+        .iter-input { width: 60px; padding: 8px; border-radius: 6px; border: 1px solid rgba(128,128,128,0.5); background: rgba(calc(var(--val) - 5), calc(var(--val) - 5), calc(var(--val) - 5), 0.9); color: inherit; text-align: center; }
+        .label { font-weight: bold; display: block; margin-top: 15px; text-align: left; margin-left: 2.5%; font-size: 0.9em; opacity: 0.8; }
+        hr { border: 0; border-top: 1px solid rgba(128,128,128,0.3); margin: 20px 0; }
+        .counter { text-align: right; font-size: 12px; margin-right: 2.5%; margin-top: -8px; opacity: 0.7; }
+    </style>
+</head>
+<body>
+    <div class="bg-gear">⚙️</div>
+    <div class="mode-slider-container">
+        <span>ダーク</span><input type="range" id="themeSlider" min="30" max="250" value="30" oninput="updateTheme(this.value)"><span>ライト</span>
+    </div>
+    <div class="container">
+        <div class="logo-wrapper"><img src="https://assets.st-note.com/production/uploads/images/239016490/rectangle_large_type_2_c160e3917400173cbde2ae9e19b03d89.png?width=2000&height=2000&fit=bounds&quality=85" class="main-logo"></div>
+        <div class="history-box">
+            <div class="history-controls">
+                <button onclick="toggleAllHistory(true)">全選択</button>
+                <button onclick="toggleAllHistory(false)">全解除</button>
+                <button class="btn-danger" onclick="deleteSelectedHistory()">選択削除</button>
+                <button class="btn-danger" onclick="clearAllHistory()">全削除</button>
+            </div>
+            <div id="historyList" class="history-list"></div>
+        </div>
+        <span class="label">入力:</span>
+        <textarea id="inputText" oninput="updateCounter()"></textarea>
+        <div id="charCount" class="counter">0 文字</div>
+        <div class="btn-group">
+            <input type="number" id="iterations" class="iter-input" value="1" min="1">
+            <button onclick="process('encrypt')">暗号化</button>
+            <button onclick="process('decrypt')">復号化</button>
+            <button onclick="swapText()" style="border: 2px solid #6f42c1;">入換</button>
+        </div>
+        <hr>
+        <div style="display:flex; justify-content:space-between; padding:0 2.5%;">
+            <span class="label" style="margin:0;">結果:</span><span id="diffDisplay" style="font-family:monospace; font-weight:bold; color:gray;">±0</span>
+        </div>
+        <textarea id="outputText" readonly></textarea>
+        <div class="btn-group">
+            <button onclick="copyText('outputText')">コピー</button>
+            <button onclick="tweet()" style="background:#000; color:#fff;">𝕏ポスト</button>
+            <button onclick="clearUI()">全消去</button>
+        </div>
+    </div>
+    <script>
+        const mapping = {'あ':'ぬ','い':'わ','う':'ん','え':'え','お':'お','か':'き','き':'く','く':'け','け':'こ','こ':'か','さ':'し','し':'す','す':'せ','せ':'そ','そ':'さ','た':'ち','ち':'つ','つ':'て','て':'と','と':'た','な':'に','に':'ぬ','ぬ':'ね','ね':'の','の':'な','は':'ひ','ひ':'ふ','ふ':'へ','へ':'ほ','ほ':'は','ま':'み','み':'む','む':'め','め':'も','も':'ま','や':'ゆ','ゆ':'よ','よ':'や','ら':'り','り':'る','る':'れ','れ':'ろ','ろ':'ら','わ':'を','を':'ん','ん':'わ','0':'⦰','1':'⦑','2':'⦒','3':'⦓','4':'⦔','5':'盟','6':'盟','7':'⦗','8':'⦘','9':'⦙'};
+        const rev = Object.fromEntries(Object.entries(mapping).map(([k,v])=>[v,k]));
+        let history = JSON.parse(localStorage.getItem('go_history') || '[]');
+        function updateTheme(v) { document.documentElement.style.setProperty('--val', v); }
+        function updateCounter() { document.getElementById('charCount').textContent = Array.from(document.getElementById('inputText').value).length + " 文字"; updateDiff(); }
+        function updateDiff() {
+            const i = Array.from(document.getElementById('inputText').value).length, o = Array.from(document.getElementById('outputText').value).length, d = o - i, t = document.getElementById('diffDisplay');
+            t.textContent = (d > 0 ? "+" : "") + d; t.style.color = d === 0 ? "gray" : (d > 0 ? "#ff4d4d" : "#4da6ff");
+        }
+        function runCipher(text, d) {
+            let res = ""; for (let c of Array.from(text)) { let h = c.replace(/[\u30a1-\u30f6]/g, s => String.fromCharCode(s.charCodeAt(0) - 0x60)); res += (d[h] || d[c] || c); }
+            return res;
+        }
+        function process(m) {
+            const count = parseInt(document.getElementById('iterations').value) || 1;
+            if (count >= 10000 && !confirm("処理が重くなります。よろしいですか?")) return;
+            let current = document.getElementById('inputText').value, d = (m === 'encrypt' ? mapping : rev);
+            for(let i=0; i<count; i++) current = runCipher(current, d);
+            document.getElementById('outputText').value = current; updateDiff();
+            if(current && m === 'encrypt') saveHistory(document.getElementById('inputText').value, current);
+        }
+        function saveHistory(i, o) {
+            history.unshift({i, o, t: new Date().toLocaleTimeString()});
+            history = history.slice(0, 20); localStorage.setItem('go_history', JSON.stringify(history)); renderHistory();
+        }
+        function renderHistory() {
+            const list = document.getElementById('historyList'); list.innerHTML = '';
+            history.forEach((h, i) => {
+                const item = document.createElement('div'); item.className = 'history-item';
+                item.innerHTML = `<input type="checkbox" class="hist-check" data-idx="${i}"><span onclick="setHistory(${i})">${h.t}: ${h.i.substring(0,10)}...</span>`;
+                list.appendChild(item);
+            });
+        }
+        function setHistory(idx) { document.getElementById('inputText').value = history[idx].i; document.getElementById('outputText').value = history[idx].o; updateCounter(); }
+        function toggleAllHistory(state) { document.querySelectorAll('.hist-check').forEach(c => c.checked = state); }
+        function deleteSelectedHistory() {
+            const checks = Array.from(document.querySelectorAll('.hist-check:checked')).map(c => parseInt(c.dataset.idx)).sort((a,b)=>b-a);
+            if(checks.length === 0) return;
+            checks.forEach(idx => history.splice(idx, 1)); localStorage.setItem('go_history', JSON.stringify(history)); renderHistory();
+        }
+        function clearAllHistory() { if(confirm("履歴を全削除しますか？")) { history = []; localStorage.removeItem('go_history'); renderHistory(); } }
+        function swapText() { const i = document.getElementById('inputText'), o = document.getElementById('outputText'); [i.value, o.value] = [o.value, i.value]; updateCounter(); }
+        function copyText(id) { const t = document.getElementById(id); if(!t.value) return; t.select(); document.execCommand('copy'); }
+        function clearUI() { if(confirm("消去？")) { document.getElementById('inputText').value=''; document.getElementById('outputText').value=''; updateCounter(); } }
+        function tweet() { const t = document.getElementById('outputText').value; if(!t) return; window.open(`https://twitter.com/intent/tweet?text=` + encodeURIComponent(`ギアオタッド暗号『${t}』\nhttps://tadano-ippanzin.github.io/gearOtad/`), '_blank'); }
+        renderHistory();
+    </script>
+</body>
+</html>
