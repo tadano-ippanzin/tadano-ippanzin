@@ -116,7 +116,7 @@
         function swapText() { const i = document.getElementById('inputText'), o = document.getElementById('outputText'); [i.value, o.value] = [o.value, i.value]; updateCounter(); }
         function copyText(id) { const t = document.getElementById(id); if(!t.value) return; t.select(); document.execCommand('copy'); }
         function clearUI() { if(confirm("消去？")) { document.getElementById('inputText').value=''; document.getElementById('outputText').value=''; updateCounter(); } }
-        function tweet() { const t = document.getElementById('outputText').value; if(!t) return; window.open(`https://twitter.com/intent/tweet?text=` + encodeURIComponent(`ギアオタッド暗号『${t}』\nhttps://tadano-ippanzin.github.io/gearOtad/`), '_blank'); }
+        function tweet() { const t = document.getElementById('outputText').value; if(!t) return; window.open(`https://twitter.com/intent/tweet?text=` + encodeURIComponent(`ギアオタッド暗号『${t}』https://tadano-ippanzin.is-a.dev/gearOtad/`), '_blank'); }
         renderHistory();
     </script>
 </body>
