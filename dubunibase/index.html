@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dubunibase Cipher (デュブニベース暗号)</title>
+    <style>
+        body { font-family: sans-serif; background: #1a1a2e; color: #e94560; text-align: center; padding: 20px; }
+        textarea { width: 90%; height: 100px; margin: 10px 0; background: #16213e; color: #fff; border: 1px solid #e94560; border-radius: 5px; padding: 10px; }
+        button { background: #e94560; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #ff2e63; }
+        .container { max-width: 600px; margin: auto; background: #0f3460; padding: 20px; border-radius: 15px; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+        h1 { font-size: 1.5rem; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Dubunibase Cipher⚙️</h1>
+        <textarea id="inputText" placeholder="暗号化するテキストを入力..."></textarea>
+        <br>
+        <button onclick="dubunibase()">暗号化 (Execute)</button>
+        <br>
+        <textarea id="outputText" readonly placeholder="結果がここに表示されます..."></textarea>
+        <br>
+        <button onclick="tweet()">X</button>
+    </div>
+
+    <script>
+        const B62 = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+        function dubunibase() {
+            const text = document.getElementById('inputText').value;
+            if(!text) return;
+
+            try {
+                // 1. Unicode分解 & 2. 再分解 (\uXXXX -> \u005c\u0075...)
+                let step2 = "";
+                for (let char of text) {
+                    let u = "\\u" + char.charCodeAt(0).toString(16).padStart(4, '0');
+                    for (let i = 0; i < u.length; i++) {
+                        step2 += "\\u" + u.charCodeAt(i).toString(16).padStart(4, '0');
+                    }
+                }
+
+                // 3. Binary化
+                let binStr = "";
+                for (let i = 0; i < step2.length; i++) {
+                    binStr += step2.charCodeAt(i).toString(2).padStart(16, '0');
+                }
+
+                // 4. Base62化 (BigIntで処理)
+                let num = BigInt("0b" + binStr);
+                let b62Result = "";
+                while (num > 0n) {
+                    b62Result = B62[Number(num % 62n)] + b62Result;
+                    num /= 62n;
+                }
+
+                // 5. Unicodeを1増やす
+                const finalResult = Array.from(b62Result).map(c => 
+                    String.fromCharCode(c.charCodeAt(0) + 1)
+                ).join('');
+
+                document.getElementById('outputText').value = finalResult;
+            } catch (e) {
+                alert("エラーが発生しました。入力が長すぎる可能性があります。");
+            }
+        }
+
+        function tweet() {
+            const t = document.getElementById('outputText').value;
+            if(!t) return;
+            const shareUrl = "https://tadano-ippanzin.is-a.dev/dubunibase/";
+            const tweetText = `ダビュニベース暗号を実行しました⚙️\n『${t}』`;
+            window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}&url=${encodeURIComponent(shareUrl)}`, '_blank');
+        }
+    </script>
+</body>
+</html>
