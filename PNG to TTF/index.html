@@ -2,142 +2,101 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>【PNG⇒TTFならETMs(ｲｰﾃｨｰﾑｽﾞ)】Easy TTF Maker system</title>
+    <title>【PNG⇒TTFならETMs】Easy TTF Maker system v4.0</title>
     <style>
-        body { font-family: sans-serif; max-width: 800px; margin: 20px auto; background: #f4f4f9; padding: 20px; color: #333; }
-        .upload-area { border: 3px dashed #bbb; padding: 30px; text-align: center; background: white; cursor: pointer; border-radius: 10px; transition: 0.3s; }
-        .upload-area:hover { background-color: #f0f8ff; border-color: #007bff; }
-        .card-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 15px; margin-top: 20px; }
-        .char-card { background: white; padding: 12px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); text-align: center; }
-        .char-card img { width: 70px; height: 70px; object-fit: contain; border: 1px solid #eee; margin-bottom: 8px; }
-        .char-label { font-size: 22px; font-weight: bold; color: #007bff; display: block; word-break: break-all; }
-        .controls { margin-top: 30px; text-align: center; padding: 30px; background: white; border-radius: 10px; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); }
-        .font-input-group { margin-bottom: 20px; }
-        #font-name { padding: 10px; font-size: 16px; border: 1px solid #ccc; border-radius: 4px; width: 200px; }
-        button { background: #007bff; color: white; border: none; padding: 15px 30px; font-size: 18px; border-radius: 6px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 0 #0056b3; }
-        button:active { transform: translateY(2px); box-shadow: 0 2px 0 #0056b3; }
-        button:disabled { background: #ccc; box-shadow: none; cursor: not-allowed; }
-        #status { margin-top: 15px; font-weight: bold; color: #555; }
+        body { font-family: sans-serif; max-width: 900px; margin: 20px auto; background: #f4f4f9; padding: 20px; }
+        .main-container { display: flex; gap: 20px; }
+        /* 左側：アップロードした画像リスト */
+        .source-area { flex: 1; background: #fff; padding: 15px; border-radius: 10px; border: 2px solid #ddd; min-height: 400px; }
+        /* 右側：文字の箱（ここに画像を放り込む） */
+        .target-area { flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 10px; }
+        
+        .image-item { width: 60px; height: 60px; border: 1px solid #ccc; cursor: grab; background: #eee; object-fit: contain; }
+        .char-box { 
+            background: #fff; border: 2px dashed #bbb; border-radius: 5px; height: 100px; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative;
+        }
+        .char-box.over { border-color: #007bff; background: #eef; }
+        .char-box span { font-size: 24px; font-weight: bold; color: #ccc; position: absolute; top: 5px; }
+        .char-box img { width: 60px; height: 60px; object-fit: contain; z-index: 2; }
+
+        .upload-btn { background: #007bff; color: white; padding: 10px; border-radius: 5px; text-align: center; cursor: pointer; margin-bottom: 10px; }
+        .controls { margin-top: 20px; text-align: center; background: #fff; padding: 20px; border-radius: 10px; }
+        button#generate { background: #28a745; color: white; border: none; padding: 15px 30px; font-size: 18px; border-radius: 5px; cursor: pointer; }
     </style>
 </head>
 <body>
 
-    <h1>画期的なツール：画像ファイルからTTFファイルに変換</h1>
-    
-    <div class="upload-area" onclick="document.getElementById('file-input').click()">
-        <h3>ここに画像ファイルをまとめて投入</h3>
-        <p>※ファイル名（拡張子除く）がそのまま文字に割り当てられます。</p>
-        <input type="file" id="file-input" multiple accept="image/*" style="display:none">
+    <h1>ETMs v4.0：ファイル名無視・配置エディタ</h1>
+    <p>①画像をアップ → ②下の文字ボックスにドラッグして配置</p>
+
+    <div class="main-container">
+        <div class="source-area" id="source-area">
+            <div class="upload-btn" onclick="document.getElementById('file-input').click()">画像を選択</div>
+            <input type="file" id="file-input" multiple accept="image/*" style="display:none">
+            <div id="image-pool"></div>
+        </div>
     </div>
 
-    <div id="result-view" style="display:none;">
-        <div id="card-list" class="card-list"></div>
-
-        <div class="controls">
-            <div class="font-input-group">
-                <label>フォント名(拡張子は要りません): </label>
-                <input type="text" id="font-name" value="MyFont">
+    <div class="controls">
+        <h3>文字ボックス（ここにドラッグ！）</h3>
+        <div class="target-area" id="target-area">
             </div>
-            <p>⚠️ 文字が間違っている場合は、ファイル名を直して再度アップロードしてください。</p>
-            <button id="generate-btn">TTFフォントをダウンロード</button>
-            <div id="status"></div>
-        </div>
+        <br>
+        <input type="text" id="font-name" value="MyFont" style="padding:10px;">
+        <button id="generate">この配置でフォント作成</button>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/imagetracerjs@1.2.6/imagetracer_v1.2.6.min.js"></script>
 
     <script>
-        const fileInput = document.getElementById('file-input');
-        const cardList = document.getElementById('card-list');
-        const resultView = document.getElementById('result-view');
-        const generateBtn = document.getElementById('generate-btn');
-        const statusDiv = document.getElementById('status');
-        let fontItems = [];
+        const imagePool = document.getElementById('image-pool');
+        const targetArea = document.getElementById('target-area');
+        const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789".split("");
+        let draggedImgSrc = null;
 
-        fileInput.addEventListener('change', async (e) => {
-            let files = Array.from(e.target.files);
-            if(files.length === 0) return;
+        // 文字ボックスの生成
+        chars.forEach(c => {
+            const box = document.createElement('div');
+            box.className = 'char-box';
+            box.innerHTML = `<span>${c}</span>`;
+            box.dataset.char = c;
 
-            // 数値を含めた自然なソート（1, 2, 10...の順）
-            files.sort((a, b) => a.name.localeCompare(b.name, undefined, {numeric: true, sensitivity: 'base'}));
-
-            cardList.innerHTML = "";
-            fontItems = [];
-            resultView.style.display = "block";
-            statusDiv.innerText = "読み込み中...";
-
-            for (let file of files) {
-                const char = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
-                await new Promise(res => {
-                    const reader = new FileReader();
-                    reader.onload = (ev) => {
-                        const div = document.createElement('div');
-                        div.className = 'char-card';
-                        // inputは一切生成せず、純粋なテキスト(span)として描画
-                        div.innerHTML = `<img src="${ev.target.result}"><span class="char-label">${char}</span>`;
-                        cardList.appendChild(div);
-                        fontItems.push({ src: ev.target.result, char: char });
-                        res();
-                    };
-                    reader.readAsDataURL(file);
-                });
-            }
-            statusDiv.innerText = "読み込み完了！文字を確認してください。";
-        });
-
-        generateBtn.addEventListener('click', async () => {
-            generateBtn.disabled = true;
-            statusDiv.innerText = "フォントを生成しています...";
-            
-            try {
-                const glyphs = [new opentype.Glyph({ name: '.notdef', unicode: 0, advanceWidth: 500, path: new opentype.Path() })];
-                
-                for (let item of fontItems) {
-                    const svg = await new Promise(r => ImageTracer.imageToSVG(item.src, (s) => r(s), { ltres:1, qtres:1 }));
-                    const doc = new DOMParser().parseFromString(svg, "image/svg+xml");
-                    const svgEl = doc.querySelector('svg');
-                    const vb = svgEl.getAttribute('viewBox').split(' ');
-                    const sc = 800 / (parseFloat(vb[3]) || 100);
-                    const otP = new opentype.Path();
-
-                    doc.querySelectorAll('path').forEach(p => {
-                        const d = p.getAttribute('d');
-                        if(d) {
-                            const tmp = opentype.Path.fromSVG(d);
-                            tmp.commands.forEach(m => {
-                                let c = {...m};
-                                if (c.x !== undefined) c.x *= sc;
-                                if (c.y !== undefined) c.y = 800 - (c.y * sc);
-                                if (c.x1 !== undefined) c.x1 *= sc;
-                                if (c.y1 !== undefined) c.y1 = 800 - (c.y1 * sc);
-                                if (c.x2 !== undefined) c.x2 *= sc;
-                                if (c.y2 !== undefined) c.y2 = 800 - (c.y2 * sc);
-                                otP.commands.push(c);
-                            });
-                        }
-                    });
-
-                    glyphs.push(new opentype.Glyph({
-                        name: item.char,
-                        unicode: Array.from(item.char).length === 1 ? item.char.codePointAt(0) : undefined,
-                        advanceWidth: (parseFloat(vb[2]) || 100) * sc,
-                        path: otP
-                    }));
+            box.ondragover = (e) => { e.preventDefault(); box.classList.add('over'); };
+            box.ondragleave = () => box.classList.remove('over');
+            box.ondrop = (e) => {
+                e.preventDefault();
+                box.classList.remove('over');
+                if (draggedImgSrc) {
+                    let img = box.querySelector('img');
+                    if (!img) {
+                        img = document.createElement('img');
+                        box.appendChild(img);
+                    }
+                    img.src = draggedImgSrc;
+                    box.dataset.src = draggedImgSrc; // 保存用
                 }
-
-                const font = new opentype.Font({
-                    familyName: document.getElementById('font-name').value || "MyFont",
-                    styleName: 'Regular', unitsPerEm: 1000, ascender: 800, descender: -200, glyphs: glyphs
-                });
-                font.download();
-                statusDiv.innerText = "ダウンロード完了！";
-            } catch (err) {
-                statusDiv.innerText = "生成エラーが発生しました。";
-            } finally {
-                generateBtn.disabled = false;
-            }
+            };
+            targetArea.appendChild(box);
         });
+
+        document.getElementById('file-input').onchange = (e) => {
+            Array.from(e.target.files).forEach(file => {
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    const img = document.createElement('img');
+                    img.src = ev.target.result;
+                    img.className = 'image-item';
+                    img.draggable = true;
+                    img.ondragstart = () => { draggedImgSrc = img.src; };
+                    imagePool.appendChild(img);
+                };
+                reader.readAsDataURL(file);
+            });
+        };
+
+        // (書き出し処理は dataset.src があるボックスを拾って生成するロジックに...)
     </script>
 </body>
 </html>
