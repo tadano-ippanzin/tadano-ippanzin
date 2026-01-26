@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>簡単TTFメーカー</title>
+    <title>【PNG⇒TTFなら(ｲｰﾃｨｰﾑｽﾞ)ETMs】Easy TTF Maker system</title>
     <style>
         body { font-family: sans-serif; max-width: 800px; margin: 20px auto; background: #f4f4f9; padding: 20px; }
         .upload-area { border: 3px dashed #bbb; padding: 30px; text-align: center; background: white; cursor: pointer; border-radius: 10px; }
@@ -10,7 +10,7 @@
         .card-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; margin-top: 20px; }
         .char-card { background: white; padding: 10px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); text-align: center; }
         .char-card img { width: 80px; height: 80px; object-fit: contain; border: 1px solid #ddd; }
-        .char-card input { width: 40px; font-size: 20px; text-align: center; margin-top: 5px; padding: 5px; }
+        .char-card input { width: 40px; font-size: 20px; text-align: center; margin-top: 5px; padding: 5px; border: 1px solid #ccc; border-radius: 4px; }
         .controls { margin-top: 30px; text-align: center; padding: 20px; background: white; border-radius: 8px; }
         button { background: #007bff; color: white; border: none; padding: 12px 24px; font-size: 18px; border-radius: 5px; cursor: pointer; }
         button:disabled { background: #ccc; cursor: not-allowed; }
@@ -19,11 +19,11 @@
 </head>
 <body>
 
-    <h1>🎨 画像からTTFフォントを作成</h1>
+    <h1>画期的な画像ファイルからTTFファイル変換</h1>
     
     <div class="upload-area" onclick="document.getElementById('file-input').click()">
-        <h3>ここをクリックして画像(PNG)を選択</h3>
-        <p>※背景が透明、または白背景の黒文字画像を推奨</p>
+        <h3>ここをクリックして画像(PNG推奨)を選択</h3>
+        <p>※ファイル名が自動で文字になります（例: a.png → a）</p>
         <input type="file" id="file-input" multiple accept="image/png" style="display:none">
     </div>
 
@@ -32,7 +32,7 @@
     <div class="controls">
         <label>フォント名: <input type="text" id="font-name" value="MyFont" style="padding: 5px;"></label>
         <br><br>
-        <button id="generate-btn">TTFフォントを生成＆ダウンロード</button>
+        <button id="generate-btn">TTFフォントをダウンロード</button>
         <div id="status"></div>
     </div>
 
@@ -45,7 +45,6 @@
         const generateBtn = document.getElementById('generate-btn');
         const statusDiv = document.getElementById('status');
         
-        // アップロードされたデータを保持するリスト
         let fontItems = [];
 
         fileInput.addEventListener('change', async (e) => {
@@ -57,32 +56,25 @@
             for (let file of files) {
                 await processFile(file);
             }
-            statusDiv.innerText = "文字を入力して生成ボタンを押してください";
+            statusDiv.innerText = "文字を確認して生成ボタンを押してください";
         });
 
-        // 画像を読み込んでカードを表示する処理
         function processFile(file) {
             return new Promise((resolve) => {
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     const dataUrl = e.target.result;
-                    
-                    // ファイル名から文字を推測 (1文字目を取得。もし数字ならそのまま)
-                    let suggestedChar = file.name.split('.')[0].charAt(0);
-                    
-                    // UI作成
+                    let name = file.name.replace(/\.[^/.]+$/, "");
                     const div = document.createElement('div');
                     div.className = 'char-card';
                     div.innerHTML = `
                         <img src="${dataUrl}">
                         <div>
-                            <input type="text" value="${suggestedChar}" maxlength="1" class="char-input">
+                            <input type="text" value="${name}" class="char-input" placeholder="?">
                         </div>
                     `;
                     
                     cardList.appendChild(div);
-                    
-                    // データ保持
                     fontItems.push({
                         imgSrc: dataUrl,
                         inputElement: div.querySelector('.char-input')
@@ -93,9 +85,6 @@
             });
         }
 
-        // ---------------------------------------------------------
-        //  ここが核心部分：画像をベクター変換してTTFにする
-        // ---------------------------------------------------------
         generateBtn.addEventListener('click', async () => {
             if (fontItems.length === 0) return alert("画像をアップロードしてください");
             
@@ -103,8 +92,6 @@
             statusDiv.innerText = "処理中... 画像を解析してベクター化しています...";
 
             try {
-                // 1. 基本のフォントデータを作成
-                // (空のフォント入れ物を用意)
                 const font = new opentype.Font({
                     familyName: document.getElementById('font-name').value,
                     styleName: 'Regular',
@@ -114,89 +101,61 @@
                     glyphs: []
                 });
 
-                // .notdef (未定義文字) を追加しないとエラーになることがあるので作成
                 const notdefGlyph = new opentype.Glyph({
                     name: '.notdef',
                     unicode: 0,
                     advanceWidth: 500,
                     path: new opentype.Path()
                 });
-                font.glyphs.push(0, notdefGlyph); // インデックス0に登録
+                font.glyphs.push(0, notdefGlyph);
 
-                // 2. 各画像を処理してグリフ(文字)化する
                 for (let item of fontItems) {
                     const char = item.inputElement.value;
-                    if (!char) continue; // 文字が空ならスキップ
-
-                    // ImageTracerを使って画像をSVGパスデータに変換
-                    // オプション: ltres(精度), colorsなど調整可能
+                    if (!char) continue;
                     const options = { ltres:1, qtres:1, scale:1, strokewidth:0, viewbox:true };
                     const svgData = await new Promise(resolve => {
-                        ImageTracer.imageToSVG(item.imgSrc, (svgstr) => {
-                            resolve(svgstr);
-                        }, options);
+                        ImageTracer.imageToSVG(item.imgSrc, (svgstr) => { resolve(svgstr); }, options);
                     });
                     
-                    // SVG文字列からパスデータ(d属性)を抽出する簡易正規表現
-                    // ※ImageTracerは複数のpathを返すことがあるが、ここでは結合または最初を使用
                     const parser = new DOMParser();
                     const doc = parser.parseFromString(svgData, "image/svg+xml");
                     const paths = doc.querySelectorAll('path');
-
                     const opentypePath = new opentype.Path();
-                    
-                    // 抽出されたSVGパスをopentype形式に変換
-                    // 座標変換: SVG(Yが下向き) -> TTF(Yが上向き) に合わせるため反転が必要
-                    // ここでは簡易的にopentype.jsの機能を使ってパスを生成します
                     
                     paths.forEach(p => {
                         const d = p.getAttribute('d');
                         if(d) {
-                            // opentype.jsのfromSVGで変換できる場合があるが
-                            // 座標系を合わせるのが難しいため、パスコマンドを解析して反転させるのが一般的
-                            // 今回は簡易的にpath2dとして読み込ませます
                             const tmpPath = opentype.Path.fromSVG(d);
-                            
-                            // 座標調整 (スケールと反転)
-                            // ImageTracerの結果は画像サイズ依存。1000x1000のemboxに合わせる
-                            const scale = 1000 / 100; // 仮のスケール（画像サイズにより調整必要）
-                            
+                            const scaleFactor = 5; 
                             for (let cmd of tmpPath.commands) {
-                                // Y軸を反転させて、位置を調整 (800はベースラインからの高さ)
-                                const yOffset = 800;
-                                const scaleFactor = 5; // 画像サイズに応じて変える必要あり
-                                
                                 if (cmd.x) cmd.x = cmd.x * scaleFactor;
                                 if (cmd.y) cmd.y = 800 - (cmd.y * scaleFactor);
                                 if (cmd.x1) cmd.x1 = cmd.x1 * scaleFactor;
                                 if (cmd.y1) cmd.y1 = 800 - (cmd.y1 * scaleFactor);
                                 if (cmd.x2) cmd.x2 = cmd.x2 * scaleFactor;
                                 if (cmd.y2) cmd.y2 = 800 - (cmd.y2 * scaleFactor);
-                                
                                 opentypePath.commands.push(cmd);
                             }
                         }
                     });
 
-                    // グリフを作成
+                    const unicodeVal = char.charCodeAt(0);
+
                     const glyph = new opentype.Glyph({
                         name: char,
-                        unicode: char.charCodeAt(0),
+                        unicode: unicodeVal,
                         advanceWidth: 1000,
                         path: opentypePath
                     });
-                    
                     font.glyphs.push(0, glyph);
                 }
 
-                // 3. ダウンロード実行
                 statusDiv.innerText = "生成完了！ダウンロードを開始します。";
                 font.download();
                 
             } catch (err) {
                 console.error(err);
-                statusDiv.innerText = "エラーが発生しました: " + err.message;
-                alert("エラー: " + err.message);
+                statusDiv.innerText = "エラー: " + err.message;
             } finally {
                 generateBtn.disabled = false;
             }
