@@ -53,9 +53,15 @@
             fontItems = [];
             statusDiv.innerText = "読み込み中...";
             for (let file of files) {
-                const nameParts = file.name.split('.');
-                const rawName = nameParts.length > 1 ? nameParts.slice(0, -1).join('.') : file.name;
-                await processFile(file, String(rawName));
+                // ファイル名を確実に「文字」として抽出
+                let nameStr = String(file.name);
+                let lastDot = nameStr.lastIndexOf('.');
+                let rawName = lastDot !== -1 ? nameStr.substring(0, lastDot) : nameStr;
+                
+                // もし数値化（Unicode化）されていたら文字に戻すための安全策
+                let finalChar = String(rawName);
+                
+                await processFile(file, finalChar);
             }
             statusDiv.innerText = "読み込み完了";
             statusDiv.style.color = "#666";
@@ -68,7 +74,7 @@
                     const dataUrl = e.target.result;
                     const div = document.createElement('div');
                     div.className = 'char-card';
-                    div.innerHTML = `<img src="${dataUrl}"><div><input type="text" value="${charToSet}" class="char-input"></div>`;
+                    div.innerHTML = `<img src="${dataUrl}"><div><input type="text" value='${charToSet}' class="char-input" autocomplete="off"></div>`;
                     cardList.appendChild(div);
                     fontItems.push({ imgSrc: dataUrl, inputElement: div.querySelector('.char-input') });
                     resolve();
@@ -97,6 +103,7 @@
                 glyphs.push(new opentype.Glyph({ name: '.notdef', unicode: 0, advanceWidth: 500, path: new opentype.Path() }));
                 
                 for (let item of fontItems) {
+                    // 入力欄の値を「文字列」として取得
                     const charText = String(item.inputElement.value).trim();
                     const svgData = await new Promise((resolve) => {
                         ImageTracer.imageToSVG(item.imgSrc, (svg) => resolve(svg), { ltres:1, qtres:1, scale:1 });
@@ -127,7 +134,10 @@
                         }
                     });
 
-                    const code = [...charText].length === 1 ? charText.codePointAt(0) : undefined;
+                    // Unicode変換時、確実に「文字」として扱う
+                    const chars = Array.from(charText);
+                    const code = chars.length === 1 ? chars[0].codePointAt(0) : undefined;
+                    
                     glyphs.push(new opentype.Glyph({
                         name: charText,
                         unicode: code,
@@ -137,7 +147,7 @@
                 }
 
                 const font = new opentype.Font({
-                    familyName: document.getElementById('font-name').value || "MyFont",
+                    familyName: String(document.getElementById('font-name').value) || "MyFont",
                     styleName: 'Regular',
                     unitsPerEm: 1000,
                     ascender: 800,
@@ -148,7 +158,8 @@
                 statusDiv.innerText = "完了";
                 statusDiv.style.color = "#28a745";
             } catch (err) {
-                statusDiv.innerText = "システムエラーが発生しました。";
+                statusDiv.innerText = "エラー: " + err.message;
+                statusDiv.style.color = "#d9534f";
             } finally {
                 generateBtn.disabled = false;
             }
