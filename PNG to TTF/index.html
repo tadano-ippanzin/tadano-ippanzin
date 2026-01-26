@@ -30,7 +30,7 @@
     <div id="card-list" class="card-list"></div>
 
     <div class="controls">
-        <label>フォント名(拡張子は要りません): <input type="text" id="font-name" value="MyFont" style="padding: 5px;"></label>
+        <label>フォント名: <input type="text" id="font-name" value="MyFont" style="padding: 5px;"></label>
         <br><br>
         <button id="generate-btn">TTFフォントをダウンロード</button>
         <div id="status"></div>
@@ -58,7 +58,6 @@
                 await processFile(file, String(raw));
             }
             statusDiv.innerText = "読み込み完了";
-            statusDiv.style.color = "#666";
         });
 
         function processFile(file, val) {
@@ -70,9 +69,11 @@
                     const inp = document.createElement('input');
                     inp.type = 'text';
                     inp.className = 'char-input';
-                    inp.autocomplete = 'one-time-code';
+                    // 🐞対策：ブラウザの全ての解釈を拒否
+                    inp.autocomplete = 'off';
                     inp.spellcheck = false;
-                    inp.setAttribute('autocorrect', 'off');
+                    inp.setAttribute('accesskey', ''); // アクセスキーを空で上書き
+                    inp.setAttribute('data-lpignore', 'true'); // パスワードマネージャー無視
                     inp.value = String(val);
                     div.innerHTML = `<img src="${e.target.result}">`;
                     const wrap = document.createElement('div');
@@ -90,8 +91,6 @@
             if (fontItems.length === 0) return;
             generateBtn.disabled = true;
             statusDiv.innerText = "生成中...";
-            statusDiv.style.color = "#007bff";
-
             try {
                 const glyphs = [new opentype.Glyph({ name: '.notdef', unicode: 0, advanceWidth: 500, path: new opentype.Path() })];
                 for (let item of fontItems) {
@@ -136,7 +135,6 @@
                     glyphs: glyphs
                 }).download();
                 statusDiv.innerText = "完了";
-                statusDiv.style.color = "#28a745";
             } catch (err) {
                 statusDiv.innerText = "ERR";
             } finally {
