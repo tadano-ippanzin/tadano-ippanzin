@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PNG to TTF Maker</title>
+    <style>
+        body { font-family: sans-serif; max-width: 800px; margin: 20px auto; padding: 0 20px; background: #f4f4f9; }
+        .upload-section { border: 2px dashed #ccc; padding: 40px; text-align: center; background: white; border-radius: 8px; cursor: pointer; }
+        #editor-container { margin-top: 20px; }
+        .char-card { display: flex; align-items: center; background: white; padding: 15px; margin-bottom: 10px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .char-card img { width: 64px; height: 64px; object-fit: contain; margin-right: 20px; border: 1px solid #eee; }
+        .char-card input { font-size: 24px; width: 60px; text-align: center; padding: 5px; border: 1px solid #ddd; border-radius: 4px; }
+        .controls { margin-top: 30px; text-align: center; }
+        button { padding: 10px 25px; font-size: 18px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 5px; }
+        button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+
+    <h2>🎨 PNG to TTF フォントメーカー</h2>
+    <p>PNG画像をアップロードして、対応する文字を入力してください。</p>
+
+    <div class="upload-section" onclick="document.getElementById('image-input').click()">
+        <p>ここをクリックして複数のPNGを選択</p>
+        <input type="file" id="image-input" multiple accept="image/png" style="display:none">
+    </div>
+
+    <div id="editor-container"></div>
+
+    <div class="controls">
+        <input type="text" id="font-name" placeholder="フォント名を入力" value="MyCustomFont">
+        <button id="generate-btn">TTFファイルを生成</button>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/opentype.js@latest/dist/opentype.min.js"></script>
+
+    <script>
+        const imageInput = document.getElementById('image-input');
+        const editorContainer = document.getElementById('editor-container');
+        const generateBtn = document.getElementById('generate-btn');
+
+        // データを保持する配列
+        let glyphData = [];
+
+        // 画像が選択された時の処理
+        imageInput.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files);
+            
+            files.forEach((file, index) => {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const dataUrl = event.target.result;
+                    createCard(dataUrl, file.name);
+                };
+                reader.readAsDataURL(file);
+            });
+        });
+
+        // UIカードの作成
+        function createCard(src, fileName) {
+            const card = document.createElement('div');
+            card.className = 'char-card';
+            
+            // ファイル名から初期値を推測（例: A.png なら 'A'）
+            const defaultChar = fileName.split('.')[0][0] || '';
+
+            card.innerHTML = `
+                <img src="${src}">
+                <div>
+                    <label>割り当てる文字: </label>
+                    <input type="text" class="char-input" maxlength="1" value="${defaultChar}">
+                    <span style="color: #888; margin-left: 10px;">(${fileName})</span>
+                </div>
+            `;
+            editorContainer.appendChild(card);
+        }
+
+        // TTF生成ロジック（骨組み）
+        generateBtn.addEventListener('click', () => {
+            const fontName = document.getElementById('font-name').value;
+            const cards = document.querySelectorAll('.char-card');
+            
+            if (cards.length === 0) return alert('画像をアップロードしてください');
+
+            // ここで opentype.js を使ってフォントを組み立てる
+            // 1. 画像をCanvasで解析してパスを取得 (Potrace等が必要)
+            // 2. パスをグリフに変換
+            // 3. フォントとして書き出し
+            
+            alert(fontName + ' の生成を開始します（実際のパス変換ロジックを次に組み込みます）');
+            console.log('生成対象のカード数:', cards.length);
+        });
+    </script>
+</body>
+</html>
