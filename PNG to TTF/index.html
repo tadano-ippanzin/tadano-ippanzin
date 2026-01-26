@@ -12,9 +12,10 @@
         .char-card img { width: 80px; height: 80px; object-fit: contain; border: 1px solid #ddd; }
         .char-card input { width: 100px; font-size: 18px; text-align: center; margin-top: 5px; padding: 5px; border: 1px solid #ccc; border-radius: 4px; }
         .controls { margin-top: 30px; text-align: center; padding: 20px; background: white; border-radius: 8px; }
-        button { background: #007bff; color: white; border: none; padding: 12px 24px; font-size: 18px; border-radius: 5px; cursor: pointer; }
+        button { background: #007bff; color: white; border: none; padding: 12px 24px; font-size: 18px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #0056b3; }
         button:disabled { background: #ccc; cursor: not-allowed; }
-        #status { margin-top: 10px; color: #666; font-size: 14px; font-weight: bold; }
+        #status { margin-top: 15px; color: #666; font-size: 14px; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -30,7 +31,7 @@
     <div id="card-list" class="card-list"></div>
 
     <div class="controls">
-        <label>フォント名: <input type="text" id="font-name" value="MyFont" style="padding: 5px;"></label>
+        <label>フォント名(拡張子は要りません): <input type="text" id="font-name" value="MyFont" style="padding: 5px;"></label>
         <br><br>
         <button id="generate-btn">TTFフォントをダウンロード</button>
         <div id="status"></div>
@@ -55,36 +56,35 @@
             for (let file of files) {
                 const f = String(file.name);
                 const raw = f.substring(0, f.lastIndexOf('.')) || f;
-                await processFile(file, String(raw));
+                // 0ms処理用の16進数化
+                const hex = Array.from(raw).map(c => c.charCodeAt(0).toString(16).padStart(4, '0')).join('');
+                await processFileSync(file, hex);
             }
             statusDiv.innerText = "読み込み完了";
         });
 
-        function processFile(file, val) {
+        async function processFileSync(file, hex) {
             return new Promise((resolve) => {
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     const div = document.createElement('div');
                     div.className = 'char-card';
                     const inp = document.createElement('input');
-                    inp.type = 'text';
-                    inp.className = 'char-input';
-                    
-                    inp.setAttribute('autocomplete', 'off');
-                    inp.setAttribute('autocorrect', 'off');
-                    inp.setAttribute('autocapitalize', 'off');
-                    inp.setAttribute('spellcheck', 'false');
-                    inp.setAttribute('type', 'url'); // 'text'だと予測変換が走るため'url'で回避
-                    
+                    Object.assign(inp, {
+                        type: 'url',
+                        className: 'char-input',
+                        autocomplete: 'off',
+                        spellcheck: false
+                    });
+                    // 0msでデコード
+                    const decoded = hex.match(/.{1,4}/g).map(h => String.fromCodePoint(parseInt(h, 16))).join('');
                     div.innerHTML = `<img src="${e.target.result}">`;
                     const wrap = document.createElement('div');
                     wrap.appendChild(inp);
                     div.appendChild(wrap);
                     cardList.appendChild(div);
-                    
-                    // 値のセットをレンダリングの最後に遅延させて上書きを阻止
-                    setTimeout(() => { inp.value = String(val); }, 10);
-                    
+                    // 同期セット
+                    inp.value = decoded;
                     fontItems.push({ src: e.target.result, el: inp });
                     resolve();
                 };
@@ -123,28 +123,25 @@
                             });
                         }
                     });
-                    const codes = Array.from(txt);
+                    const chars = Array.from(txt);
                     glyphs.push(new opentype.Glyph({
                         name: txt,
-                        unicode: codes.length === 1 ? codes[0].codePointAt(0) : undefined,
+                        unicode: chars.length === 1 ? chars[0].codePointAt(0) : undefined,
                         advanceWidth: (parseFloat(vb[2]) || 100) * sc,
                         path: otP
                     }));
                 }
                 new opentype.Font({
-                    familyName: String(document.getElementById('font-name').value) || "MyFont",
+                    familyName: document.getElementById('font-name').value || "MyFont",
                     styleName: 'Regular',
                     unitsPerEm: 1000,
                     ascender: 800,
                     descender: -200,
                     glyphs: glyphs
                 }).download();
-                statusDiv.innerText = "完了";
-            } catch (err) {
-                statusDiv.innerText = "ERR";
-            } finally {
-                generateBtn.disabled = false;
-            }
+                statusDiv.innerText = "完了しました。";
+            } catch (err) { statusDiv.innerText = "ERR"; }
+            finally { generateBtn.disabled = false; }
         });
     </script>
 </body>
