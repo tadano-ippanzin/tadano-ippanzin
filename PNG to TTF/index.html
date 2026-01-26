@@ -13,7 +13,8 @@
         .char-card input { width: 100px; font-size: 18px; text-align: center; margin-top: 5px; padding: 5px; border: 1px solid #ccc; border-radius: 4px; }
         .controls { margin-top: 30px; text-align: center; padding: 20px; background: white; border-radius: 8px; }
         button { background: #007bff; color: white; border: none; padding: 12px 24px; font-size: 18px; border-radius: 5px; cursor: pointer; }
-        #status { margin-top: 10px; color: #666; font-size: 14px; font-weight: bold; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        #status { margin-top: 10px; color: #d9534f; font-size: 14px; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -48,43 +49,37 @@
         fileInput.addEventListener('change', async (e) => {
             const files = Array.from(e.target.files);
             if(files.length === 0) return;
-
             cardList.innerHTML = "";
             fontItems = [];
             statusDiv.innerText = "読み込み中...";
-
             for (let file of files) {
-                const fName = String(file.name);
-                const lastDot = fName.lastIndexOf('.');
-                const charName = lastDot !== -1 ? fName.substring(0, lastDot) : fName;
-                
-                await processFile(file, charName);
+                const f = String(file.name);
+                const raw = f.substring(0, f.lastIndexOf('.')) || f;
+                await processFile(file, String(raw));
             }
             statusDiv.innerText = "読み込み完了";
+            statusDiv.style.color = "#666";
         });
 
-        function processFile(file, charToSet) {
+        function processFile(file, val) {
             return new Promise((resolve) => {
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     const div = document.createElement('div');
                     div.className = 'char-card';
-                    
-                    const input = document.createElement('input');
-                    input.type = 'text';
-                    input.className = 'char-input';
-                    input.autocomplete = 'off';
-                    input.autocapitalize = 'none';
-                    input.spellcheck = false;
-                    input.value = String(charToSet);
-
+                    const inp = document.createElement('input');
+                    inp.type = 'text';
+                    inp.className = 'char-input';
+                    inp.autocomplete = 'one-time-code';
+                    inp.spellcheck = false;
+                    inp.setAttribute('autocorrect', 'off');
+                    inp.value = String(val);
                     div.innerHTML = `<img src="${e.target.result}">`;
-                    const inputDiv = document.createElement('div');
-                    inputDiv.appendChild(input);
-                    div.appendChild(inputDiv);
-                    
+                    const wrap = document.createElement('div');
+                    wrap.appendChild(inp);
+                    div.appendChild(wrap);
                     cardList.appendChild(div);
-                    fontItems.push({ imgSrc: e.target.result, inputElement: input });
+                    fontItems.push({ src: e.target.result, el: inp });
                     resolve();
                 };
                 reader.readAsDataURL(file);
@@ -94,58 +89,56 @@
         generateBtn.addEventListener('click', async () => {
             if (fontItems.length === 0) return;
             generateBtn.disabled = true;
-            statusDiv.innerText = "作成中...";
+            statusDiv.innerText = "生成中...";
+            statusDiv.style.color = "#007bff";
 
             try {
                 const glyphs = [new opentype.Glyph({ name: '.notdef', unicode: 0, advanceWidth: 500, path: new opentype.Path() })];
-                
                 for (let item of fontItems) {
-                    const charText = String(item.inputElement.value);
-                    if (!charText) continue;
-
-                    const svgData = await new Promise(res => ImageTracer.imageToSVG(item.imgSrc, (svg) => res(svg), { ltres:1, qtres:1 }));
-                    const doc = new DOMParser().parseFromString(svgData, "image/svg+xml");
+                    const txt = String(item.el.value).trim();
+                    if (!txt) continue;
+                    const svg = await new Promise(res => ImageTracer.imageToSVG(item.src, (s) => res(s), { ltres:1, qtres:1 }));
+                    const doc = new DOMParser().parseFromString(svg, "image/svg+xml");
                     const svgEl = doc.querySelector('svg');
-                    const viewBox = svgEl.getAttribute('viewBox').split(' ');
-                    const scale = 800 / (parseFloat(viewBox[3]) || 100);
-
-                    const otPath = new opentype.Path();
+                    const vb = svgEl.getAttribute('viewBox').split(' ');
+                    const sc = 800 / (parseFloat(vb[3]) || 100);
+                    const otP = new opentype.Path();
                     doc.querySelectorAll('path').forEach(p => {
                         const d = p.getAttribute('d');
                         if(d) {
-                            const tmpPath = opentype.Path.fromSVG(d);
-                            tmpPath.commands.forEach(cmd => {
-                                let c = {...cmd};
-                                if (c.x !== undefined) c.x *= scale;
-                                if (c.y !== undefined) c.y = 800 - (c.y * scale);
-                                if (c.x1 !== undefined) c.x1 *= scale;
-                                if (c.y1 !== undefined) c.y1 = 800 - (c.y1 * scale);
-                                if (c.x2 !== undefined) c.x2 *= scale;
-                                if (c.y2 !== undefined) c.y2 = 800 - (c.y2 * scale);
-                                otPath.commands.push(c);
+                            const tmp = opentype.Path.fromSVG(d);
+                            tmp.commands.forEach(m => {
+                                let c = {...m};
+                                if (c.x !== undefined) c.x *= sc;
+                                if (c.y !== undefined) c.y = 800 - (c.y * sc);
+                                if (c.x1 !== undefined) c.x1 *= sc;
+                                if (c.y1 !== undefined) c.y1 = 800 - (c.y1 * sc);
+                                if (c.x2 !== undefined) c.x2 *= sc;
+                                if (c.y2 !== undefined) c.y2 = 800 - (c.y2 * sc);
+                                otP.commands.push(c);
                             });
                         }
                     });
-
+                    const codes = Array.from(txt);
                     glyphs.push(new opentype.Glyph({
-                        name: charText,
-                        unicode: [...charText].length === 1 ? charText.codePointAt(0) : undefined,
-                        advanceWidth: (parseFloat(viewBox[2]) || 100) * scale,
-                        path: otPath
+                        name: txt,
+                        unicode: codes.length === 1 ? codes[0].codePointAt(0) : undefined,
+                        advanceWidth: (parseFloat(vb[2]) || 100) * sc,
+                        path: otP
                     }));
                 }
-
                 new opentype.Font({
-                    familyName: String(document.getElementById('font-name').value),
+                    familyName: String(document.getElementById('font-name').value) || "MyFont",
                     styleName: 'Regular',
                     unitsPerEm: 1000,
                     ascender: 800,
                     descender: -200,
                     glyphs: glyphs
                 }).download();
-                statusDiv.innerText = "完了！";
+                statusDiv.innerText = "完了";
+                statusDiv.style.color = "#28a745";
             } catch (err) {
-                statusDiv.innerText = "エラーが発生しました。";
+                statusDiv.innerText = "ERR";
             } finally {
                 generateBtn.disabled = false;
             }
