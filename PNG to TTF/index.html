@@ -10,11 +10,11 @@
         .card-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; margin-top: 20px; }
         .char-card { background: white; padding: 10px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); text-align: center; }
         .char-card img { width: 80px; height: 80px; object-fit: contain; border: 1px solid #ddd; }
-        .char-card input { width: 80px; font-size: 18px; text-align: center; margin-top: 5px; padding: 5px; border: 1px solid #ccc; border-radius: 4px; }
+        .char-card input { width: 100px; font-size: 18px; text-align: center; margin-top: 5px; padding: 5px; border: 1px solid #ccc; border-radius: 4px; }
         .controls { margin-top: 30px; text-align: center; padding: 20px; background: white; border-radius: 8px; }
         button { background: #007bff; color: white; border: none; padding: 12px 24px; font-size: 18px; border-radius: 5px; cursor: pointer; }
         button:disabled { background: #ccc; cursor: not-allowed; }
-        #status { margin-top: 10px; color: #666; font-size: 14px; }
+        #status { margin-top: 10px; color: #d9534f; font-size: 14px; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -53,10 +53,11 @@
             fontItems = [];
             statusDiv.innerText = "読み込み中...";
             for (let file of files) {
-                const rawName = file.name.replace(/\.[^/.]+$/, "");
+                const rawName = String(file.name).split('.').slice(0, -1).join('.');
                 await processFile(file, rawName);
             }
-            statusDiv.innerText = "読み込み完了。複数文字の入力も可能です。";
+            statusDiv.innerText = "読み込み完了";
+            statusDiv.style.color = "#666";
         });
 
         function processFile(file, charToSet) {
@@ -66,12 +67,7 @@
                     const dataUrl = e.target.result;
                     const div = document.createElement('div');
                     div.className = 'char-card';
-                    div.innerHTML = `
-                        <img src="${dataUrl}">
-                        <div>
-                            <input type="text" value="${charToSet}" class="char-input" placeholder="文字">
-                        </div>
-                    `;
+                    div.innerHTML = `<img src="${dataUrl}"><div><input type="text" value="${charToSet}" class="char-input"></div>`;
                     cardList.appendChild(div);
                     fontItems.push({ imgSrc: dataUrl, inputElement: div.querySelector('.char-input') });
                     resolve();
@@ -81,70 +77,69 @@
         }
 
         generateBtn.addEventListener('click', async () => {
-            if (fontItems.length === 0) return alert("画像を選択してください");
+            if (fontItems.length === 0) return;
             generateBtn.disabled = true;
-            statusDiv.innerText = "変換中...";
+            statusDiv.innerText = "処理中...";
+            statusDiv.style.color = "#007bff";
+
             try {
                 const glyphs = [];
                 glyphs.push(new opentype.Glyph({ name: '.notdef', unicode: 0, advanceWidth: 500, path: new opentype.Path() }));
                 
                 for (let item of fontItems) {
-                    const charText = item.inputElement.value;
+                    const charText = String(item.inputElement.value);
                     if (!charText) continue;
 
-                    const svgData = await new Promise(resolve => {
-                        ImageTracer.imageToSVG(item.imgSrc, (svgstr) => { resolve(svgstr); }, { ltres:0.5, qtres:0.5, scale:1 });
+                    const svgData = await new Promise((resolve) => {
+                        ImageTracer.imageToSVG(item.imgSrc, (svg) => resolve(svg), { ltres:1, qtres:1, scale:1 });
                     });
                     
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(svgData, "image/svg+xml");
+                    const doc = new DOMParser().parseFromString(svgData, "image/svg+xml");
                     const svgEl = doc.querySelector('svg');
                     const viewBox = svgEl.getAttribute('viewBox').split(' ');
                     const imgW = parseFloat(viewBox[2]);
                     const imgH = parseFloat(viewBox[3]);
-                    const scaleFactor = 800 / imgH;
-                    const paths = doc.querySelectorAll('path');
+                    const scale = 800 / imgH;
+
                     const otPath = new opentype.Path();
-                    
-                    paths.forEach(p => {
+                    doc.querySelectorAll('path').forEach(p => {
                         const d = p.getAttribute('d');
                         if(d) {
                             const tmpPath = opentype.Path.fromSVG(d);
-                            for (let cmd of tmpPath.commands) {
-                                let c = Object.assign({}, cmd);
-                                if (c.x !== undefined) c.x *= scaleFactor;
-                                if (c.y !== undefined) c.y = 800 - (c.y * scaleFactor);
-                                if (c.x1 !== undefined) c.x1 *= scaleFactor;
-                                if (c.y1 !== undefined) c.y1 = 800 - (c.y1 * scaleFactor);
-                                if (c.x2 !== undefined) c.x2 *= scaleFactor;
-                                if (c.y2 !== undefined) c.y2 = 800 - (c.y2 * scaleFactor);
+                            tmpPath.commands.forEach(cmd => {
+                                let c = {...cmd};
+                                if (c.x !== undefined) c.x *= scale;
+                                if (c.y !== undefined) c.y = 800 - (c.y * scale);
+                                if (c.x1 !== undefined) c.x1 *= scale;
+                                if (c.y1 !== undefined) c.y1 = 800 - (c.y1 * scale);
+                                if (c.x2 !== undefined) c.x2 *= scale;
+                                if (c.y2 !== undefined) c.y2 = 800 - (c.y2 * scale);
                                 otPath.commands.push(c);
-                            }
+                            });
                         }
                     });
 
-                    const isSingleChar = [...charText].length === 1;
+                    const code = [...charText].length === 1 ? charText.codePointAt(0) : undefined;
                     glyphs.push(new opentype.Glyph({
                         name: charText,
-                        unicode: isSingleChar ? charText.codePointAt(0) : undefined,
-                        advanceWidth: imgW * scaleFactor,
+                        unicode: code,
+                        advanceWidth: imgW * scale,
                         path: otPath
                     }));
                 }
 
-                const font = new opentype.Font({
-                    familyName: document.getElementById('font-name').value,
+                new opentype.Font({
+                    familyName: document.getElementById('font-name').value || "MyFont",
                     styleName: 'Regular',
                     unitsPerEm: 1000,
                     ascender: 800,
                     descender: -200,
                     glyphs: glyphs
-                });
-
-                font.download();
+                }).download();
                 statusDiv.innerText = "完了";
+                statusDiv.style.color = "#28a745";
             } catch (err) {
-                statusDiv.innerText = "エラー";
+                statusDiv.innerText = "エラー: " + err.message;
             } finally {
                 generateBtn.disabled = false;
             }
