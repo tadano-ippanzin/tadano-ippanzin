@@ -10,7 +10,12 @@
         .card-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; margin-top: 20px; }
         .char-card { background: white; padding: 10px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); text-align: center; }
         .char-card img { width: 80px; height: 80px; object-fit: contain; border: 1px solid #ddd; }
-        .char-card input { width: 100px; font-size: 18px; text-align: center; margin-top: 5px; padding: 5px; border: 1px solid #ccc; border-radius: 4px; }
+        /* 🐞対策: inputを捨ててcontenteditableなdivに変更 */
+        .char-input-div { 
+            width: 100px; font-size: 18px; text-align: center; margin: 5px auto 0; padding: 5px; 
+            border: 1px solid #ccc; border-radius: 4px; background: #fff; display: inline-block;
+            outline: none; overflow: hidden; white-space: nowrap;
+        }
         .controls { margin-top: 30px; text-align: center; padding: 20px; background: white; border-radius: 8px; }
         button { background: #007bff; color: white; border: none; padding: 12px 24px; font-size: 18px; border-radius: 5px; cursor: pointer; font-weight: bold; }
         button:hover { background: #0056b3; }
@@ -56,7 +61,7 @@
             for (let file of files) {
                 const f = String(file.name);
                 const raw = f.substring(0, f.lastIndexOf('.')) || f;
-                // 0ms処理用の16進数化
+                // 0msデコード用の16進数
                 const hex = Array.from(raw).map(c => c.charCodeAt(0).toString(16).padStart(4, '0')).join('');
                 await processFileSync(file, hex);
             }
@@ -69,23 +74,23 @@
                 reader.onload = (e) => {
                     const div = document.createElement('div');
                     div.className = 'char-card';
-                    const inp = document.createElement('input');
-                    Object.assign(inp, {
-                        type: 'url',
-                        className: 'char-input',
-                        autocomplete: 'off',
-                        spellcheck: false
-                    });
-                    // 0msでデコード
+                    
+                    // inputの代わりにdivを使用し、自動入力を根本から殺す
+                    const editable = document.createElement('div');
+                    editable.className = 'char-input-div';
+                    editable.contentEditable = "true";
+                    editable.setAttribute('spellcheck', 'false');
+                    
                     const decoded = hex.match(/.{1,4}/g).map(h => String.fromCodePoint(parseInt(h, 16))).join('');
+                    
                     div.innerHTML = `<img src="${e.target.result}">`;
-                    const wrap = document.createElement('div');
-                    wrap.appendChild(inp);
-                    div.appendChild(wrap);
+                    div.appendChild(editable);
                     cardList.appendChild(div);
-                    // 同期セット
-                    inp.value = decoded;
-                    fontItems.push({ src: e.target.result, el: inp });
+                    
+                    // 同時（0ms）にテキストとしてセット
+                    editable.innerText = decoded;
+
+                    fontItems.push({ src: e.target.result, el: editable });
                     resolve();
                 };
                 reader.readAsDataURL(file);
@@ -99,7 +104,7 @@
             try {
                 const glyphs = [new opentype.Glyph({ name: '.notdef', unicode: 0, advanceWidth: 500, path: new opentype.Path() })];
                 for (let item of fontItems) {
-                    const txt = String(item.el.value).trim();
+                    const txt = String(item.el.innerText).trim(); // input.valueの代わりにinnerText
                     if (!txt) continue;
                     const svg = await new Promise(res => ImageTracer.imageToSVG(item.src, (s) => res(s), { ltres:1, qtres:1 }));
                     const doc = new DOMParser().parseFromString(svg, "image/svg+xml");
