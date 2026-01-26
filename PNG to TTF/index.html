@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>【PNG⇒TTFなら(ｲｰﾃｨｰﾑｽﾞ)ETMs】Easy TTF Maker system</title>
+    <title>【PNG to TTFなら(ｲｰﾃｨｰﾑｽﾞ)ETMs】Easy TTF Maker system</title>
     <style>
         body { font-family: sans-serif; max-width: 800px; margin: 20px auto; background: #f4f4f9; padding: 20px; }
         .upload-area { border: 3px dashed #bbb; padding: 30px; text-align: center; background: white; cursor: pointer; border-radius: 10px; }
@@ -24,7 +24,7 @@
     <div class="upload-area" onclick="document.getElementById('file-input').click()">
         <h3>ここをクリックして画像(PNG推奨)を選択</h3>
         <p>※ファイル名が自動で文字になります（例: a.png → a）</p>
-        <input type="file" id="file-input" multiple accept="image/png" style="display:none">
+        <input type="file" id="file-input" multiple accept="image/*" style="display:none">
     </div>
 
     <div id="card-list" class="card-list"></div>
@@ -62,7 +62,7 @@
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     const dataUrl = e.target.result;
-                    let name = file.name.replace(/\.[^/.]+$/, "").charAt(0);
+                    let name = file.name.split('.')[0].charAt(0);
                     const div = document.createElement('div');
                     div.className = 'char-card';
                     div.innerHTML = `
@@ -85,7 +85,7 @@
         generateBtn.addEventListener('click', async () => {
             if (fontItems.length === 0) return alert("画像をアップロードしてください");
             generateBtn.disabled = true;
-            statusDiv.innerText = "処理中... 画像を解析してベクター化しています...";
+            statusDiv.innerText = "処理中...";
 
             try {
                 const glyphs = [];
@@ -101,32 +101,33 @@
                     if (!char) continue;
 
                     const svgData = await new Promise(resolve => {
-                        ImageTracer.imageToSVG(item.imgSrc, (svgstr) => { resolve(svgstr); }, { ltres:1, qtres:1, scale:1 });
+                        ImageTracer.imageToSVG(item.imgSrc, (svgstr) => { resolve(svgstr); }, { ltres:0.5, qtres:0.5, scale:1 });
                     });
                     
                     const parser = new DOMParser();
                     const doc = parser.parseFromString(svgData, "image/svg+xml");
                     const svgEl = doc.querySelector('svg');
-                    const imgW = parseFloat(svgEl.getAttribute('width'));
-                    const imgH = parseFloat(svgEl.getAttribute('height'));
+                    const viewBox = svgEl.getAttribute('viewBox').split(' ');
+                    const imgW = parseFloat(viewBox[2]);
+                    const imgH = parseFloat(viewBox[3]);
                     const scaleFactor = 800 / imgH;
 
                     const paths = doc.querySelectorAll('path');
-                    const opentypePath = new opentype.Path();
+                    const otPath = new opentype.Path();
                     
                     paths.forEach(p => {
                         const d = p.getAttribute('d');
                         if(d) {
                             const tmpPath = opentype.Path.fromSVG(d);
                             for (let cmd of tmpPath.commands) {
-                                let newCmd = Object.assign({}, cmd);
-                                if (newCmd.x !== undefined) newCmd.x = newCmd.x * scaleFactor;
-                                if (newCmd.y !== undefined) newCmd.y = 800 - (newCmd.y * scaleFactor);
-                                if (newCmd.x1 !== undefined) newCmd.x1 = newCmd.x1 * scaleFactor;
-                                if (newCmd.y1 !== undefined) newCmd.y1 = 800 - (newCmd.y1 * scaleFactor);
-                                if (newCmd.x2 !== undefined) newCmd.x2 = newCmd.x2 * scaleFactor;
-                                if (newCmd.y2 !== undefined) newCmd.y2 = 800 - (newCmd.y2 * scaleFactor);
-                                opentypePath.commands.push(newCmd);
+                                let c = Object.assign({}, cmd);
+                                if (c.x !== undefined) c.x *= scaleFactor;
+                                if (c.y !== undefined) c.y = 800 - (c.y * scaleFactor);
+                                if (c.x1 !== undefined) c.x1 *= scaleFactor;
+                                if (c.y1 !== undefined) c.y1 = 800 - (c.y1 * scaleFactor);
+                                if (c.x2 !== undefined) c.x2 *= scaleFactor;
+                                if (c.y2 !== undefined) c.y2 = 800 - (c.y2 * scaleFactor);
+                                otPath.commands.push(c);
                             }
                         }
                     });
@@ -135,7 +136,7 @@
                         name: char,
                         unicode: char.charCodeAt(0),
                         advanceWidth: imgW * scaleFactor,
-                        path: opentypePath
+                        path: otPath
                     }));
                 }
 
@@ -148,10 +149,9 @@
                     glyphs: glyphs
                 });
 
-                statusDiv.innerText = "生成完了！ダウンロードを開始します。";
                 font.download();
+                statusDiv.innerText = "完了";
             } catch (err) {
-                console.error(err);
                 statusDiv.innerText = "エラー: " + err.message;
             } finally {
                 generateBtn.disabled = false;
