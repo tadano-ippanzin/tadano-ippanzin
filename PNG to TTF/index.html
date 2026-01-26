@@ -18,6 +18,7 @@
         .controls { margin-top: 30px; text-align: center; padding: 25px; background: white; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         button { background: #28a745; color: white; border: none; padding: 15px 50px; font-size: 20px; font-weight: bold; border-radius: 50px; cursor: pointer; }
         button:hover { background: #218838; transform: translateY(-2px); }
+        button:disabled { background: #ccc; }
         #tester { width: 100%; height: 80px; margin-top: 15px; font-size: 28px; display: none; padding: 10px; box-sizing: border-box; }
         .remove-btn { position: absolute; top: 2px; right: 2px; background: #ff4757; color: white; border: none; border-radius: 50%; cursor: pointer; width: 20px; height: 20px; }
     </style>
@@ -26,16 +27,16 @@
 
     <h1 style="text-align:center;">🎨 ETMs: フルオート・フォントギルド</h1>
 
-    <div class="section-title">1. 通常文字 (a, @, ℘, ː ...)</div>
+    <div class="section-title">1. 通常文字 (a, b, ŋ, ː ...)</div>
     <div class="upload-area" onclick="document.getElementById('in-std').click()">
-        画像をドロップ
+        画像をドロップ (化けた名前も自動修復)
         <input type="file" id="in-std" multiple accept="image/*" style="display:none">
     </div>
     <div id="list-std" class="card-list"></div>
 
-    <div class="section-title">2. リガチャ (fi, ff, st ...) ※無くてもOK</div>
+    <div class="section-title">2. リガチャ (fi, ff, st ...) ※空でもOK</div>
     <div class="upload-area" style="border-color: #6f42c1;" onclick="document.getElementById('in-lig').click()">
-        リガチャ画像を投入
+        リガチャ画像を投入（なければスルーでOK）
         <input type="file" id="in-lig" multiple accept="image/*" style="display:none">
     </div>
     <div id="list-lig" class="card-list"></div>
@@ -43,7 +44,7 @@
     <div class="controls">
         <div style="margin-bottom:15px;">
             フォント名: <input type="text" id="font-name" value="ETM-Font">
-            <label><input type="checkbox" id="sub-check" checked> 代替(A←a)有効</label>
+            <label style="margin-left:10px;"><input type="checkbox" id="sub-check" checked> 代替(A←a)有効</label>
         </div>
         <button id="gen-btn">3. 変換して保存（終わり）</button>
         <div id="status" style="margin-top:10px; color:#007bff;"></div>
@@ -53,39 +54,64 @@
     <script>
         const status = document.getElementById('status');
         const tester = document.getElementById('tester');
+        const genBtn = document.getElementById('gen-btn');
 
-        // 760xxxバグ修復 & リガチャ名維持
-        const fixName = n => /^760\d+$/.test(n.split('.')[0]) ? String.fromCodePoint(parseInt(n.split('.')[0])) : n.split('.')[0];
+        // 安全なファイル名修復ロジック (nullチェック強化)
+        const fixName = f => {
+            if (!f || !f.name) return "?";
+            let n = f.name.split('.')[0];
+            if (/^760\d+$/.test(n)) return String.fromCodePoint(parseInt(n));
+            return n;
+        };
 
-        const add = (list, src, name) => {
+        const add = (listId, src, name) => {
+            const list = document.getElementById(listId);
             const div = document.createElement('div');
             div.className = 'char-card';
             div.innerHTML = `<button class="remove-btn">×</button><img src="${src}"><input type="text" value="${name}">`;
             div.querySelector('.remove-btn').onclick = () => div.remove();
-            document.getElementById(list).appendChild(div);
+            list.appendChild(div);
         };
 
-        const listen = (id, list) => document.getElementById(id).onchange = e => {
-            Array.from(e.target.files).forEach(f => {
-                const r = new FileReader(); r.onload = ev => add(list, ev.target.result, fixName(f.name)); r.readAsDataURL(f);
-            });
+        const listen = (inputId, listId) => {
+            document.getElementById(inputId).onchange = e => {
+                if (!e.target.files) return;
+                Array.from(e.target.files).forEach(f => {
+                    const r = new FileReader(); 
+                    r.onload = ev => add(listId, ev.target.result, fixName(f)); 
+                    r.readAsDataURL(f);
+                });
+            };
         };
-        listen('in-std', 'list-std'); listen('in-lig', 'list-lig');
+        listen('in-std', 'list-std'); 
+        listen('in-lig', 'list-lig');
 
-        document.getElementById('gen-btn').onclick = async () => {
+        genBtn.onclick = async () => {
+            genBtn.disabled = true;
             status.innerText = "生成中...";
             try {
                 const glyphs = [new opentype.Glyph({name:'.notdef', unicode:0, advanceWidth:600, path:new opentype.Path()})];
                 
                 const process = async (listId, isLig) => {
-                    for (let card of document.getElementById(listId).querySelectorAll('.char-card')) {
-                        const char = card.querySelector('input').value;
-                        const svg = await new Promise(res => ImageTracer.imageToSVG(card.querySelector('img').src, s => res(s), {ltres:0.5, qtres:0.5}));
+                    const container = document.getElementById(listId);
+                    const cards = container.querySelectorAll('.char-card');
+                    for (let card of cards) {
+                        const input = card.querySelector('input');
+                        const img = card.querySelector('img');
+                        if (!input || !input.value || !img) continue;
+
+                        const char = input.value;
+                        const svg = await new Promise(res => ImageTracer.imageToSVG(img.src, s => res(s), {ltres:0.5, qtres:0.5}));
                         const path = parseSVG(svg);
+                        
                         glyphs.push(new opentype.Glyph({
-                            name: char, unicode: isLig ? null : char.codePointAt(0), advanceWidth: 750, path: path
+                            name: char, 
+                            unicode: isLig ? null : char.codePointAt(0), 
+                            advanceWidth: 750, 
+                            path: path
                         }));
-                        // Substitution A-a
+
+                        // 代替機能: 小文字を大文字にコピー
                         if(!isLig && document.getElementById('sub-check').checked && /^[a-z]$/.test(char)) {
                              glyphs.push(new opentype.Glyph({ name: char.toUpperCase(), unicode: char.toUpperCase().codePointAt(0), advanceWidth: 750, path: path }));
                         }
@@ -95,30 +121,43 @@
                 await process('list-std', false);
                 await process('list-lig', true);
 
+                if (glyphs.length <= 1) throw new Error("画像がありません");
+
                 const font = new opentype.Font({
-                    familyName: document.getElementById('font-name').value,
+                    familyName: document.getElementById('font-name').value || 'ETMFont',
                     styleName: 'Regular', unitsPerEm: 1000, ascender: 800, descender: -200, glyphs: glyphs
                 });
 
-                // リガチャ、Subなどの高度なテーブルは自動的にopentype.jsが構築
                 const buf = font.toArrayBuffer();
                 const url = URL.createObjectURL(new Blob([buf]));
                 const style = document.createElement('style');
                 style.innerHTML = `@font-face { font-family: 'Live'; src: url(${url}); }`;
                 document.head.appendChild(style);
-                tester.style.display = "block"; tester.style.fontFamily = 'Live';
+                tester.style.display = "block"; 
+                tester.style.fontFamily = 'Live';
+                
                 font.download();
-                status.innerText = "完了！試し打ちしてください。";
-            } catch (e) { status.innerText = "エラー: " + e.message; }
+                status.innerText = "完了！保存されました。";
+            } catch (e) { 
+                status.innerText = "エラー: " + e.message; 
+                console.error(e);
+            } finally {
+                genBtn.disabled = false;
+            }
         };
 
         function parseSVG(svg) {
-            const parser = new DOMParser(); const doc = parser.parseFromString(svg, "image/svg+xml");
-            const vb = doc.querySelector('svg').getAttribute('viewBox').split(' ');
+            const parser = new DOMParser(); 
+            const doc = parser.parseFromString(svg, "image/svg+xml");
+            const svgEl = doc.querySelector('svg');
+            if(!svgEl) return new opentype.Path();
+            const vb = svgEl.getAttribute('viewBox').split(' ');
             const scale = 800 / Math.max(vb[2], vb[3]);
             const otPath = new opentype.Path();
             doc.querySelectorAll('path').forEach(p => {
-                const temp = opentype.Path.fromSVG(p.getAttribute('d'));
+                const d = p.getAttribute('d');
+                if(!d) return;
+                const temp = opentype.Path.fromSVG(d);
                 temp.commands.forEach(c => {
                     const cmd = {...c};
                     if('x' in cmd) cmd.x *= scale; if('y' in cmd) cmd.y = 800 - (cmd.y * scale);
