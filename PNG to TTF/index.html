@@ -14,7 +14,7 @@
         .controls { margin-top: 30px; text-align: center; padding: 20px; background: white; border-radius: 8px; }
         button { background: #007bff; color: white; border: none; padding: 12px 24px; font-size: 18px; border-radius: 5px; cursor: pointer; }
         button:disabled { background: #ccc; cursor: not-allowed; }
-        #status { margin-top: 10px; color: #d9534f; font-size: 14px; font-weight: bold; }
+        #status { margin-top: 10px; color: #666; font-size: 14px; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -69,17 +69,22 @@
                     const inp = document.createElement('input');
                     inp.type = 'text';
                     inp.className = 'char-input';
-                    // 🐞対策：ブラウザの全ての解釈を拒否
-                    inp.autocomplete = 'off';
-                    inp.spellcheck = false;
-                    inp.setAttribute('accesskey', ''); // アクセスキーを空で上書き
-                    inp.setAttribute('data-lpignore', 'true'); // パスワードマネージャー無視
-                    inp.value = String(val);
+                    
+                    inp.setAttribute('autocomplete', 'off');
+                    inp.setAttribute('autocorrect', 'off');
+                    inp.setAttribute('autocapitalize', 'off');
+                    inp.setAttribute('spellcheck', 'false');
+                    inp.setAttribute('type', 'url'); // 'text'だと予測変換が走るため'url'で回避
+                    
                     div.innerHTML = `<img src="${e.target.result}">`;
                     const wrap = document.createElement('div');
                     wrap.appendChild(inp);
                     div.appendChild(wrap);
                     cardList.appendChild(div);
+                    
+                    // 値のセットをレンダリングの最後に遅延させて上書きを阻止
+                    setTimeout(() => { inp.value = String(val); }, 10);
+                    
                     fontItems.push({ src: e.target.result, el: inp });
                     resolve();
                 };
