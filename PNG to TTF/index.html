@@ -50,9 +50,7 @@
         fileInput.addEventListener('change', async (e) => {
             const files = Array.from(e.target.files);
             if(files.length === 0) return;
-
             statusDiv.innerText = `${files.length}枚の画像を読み込み中...`;
-
             for (let file of files) {
                 await processFile(file);
             }
@@ -64,16 +62,15 @@
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     const dataUrl = e.target.result;
-                    let name = file.name.replace(/\.[^/.]+$/, "");
+                    let name = file.name.replace(/\.[^/.]+$/, "").charAt(0);
                     const div = document.createElement('div');
                     div.className = 'char-card';
                     div.innerHTML = `
                         <img src="${dataUrl}">
                         <div>
-                            <input type="text" value="${name}" class="char-input" placeholder="?">
+                            <input type="text" value="${name}" class="char-input" maxlength="1">
                         </div>
                     `;
-                    
                     cardList.appendChild(div);
                     fontItems.push({
                         imgSrc: dataUrl,
@@ -87,38 +84,33 @@
 
         generateBtn.addEventListener('click', async () => {
             if (fontItems.length === 0) return alert("画像をアップロードしてください");
-            
             generateBtn.disabled = true;
             statusDiv.innerText = "処理中... 画像を解析してベクター化しています...";
 
             try {
-                const font = new opentype.Font({
-                    familyName: document.getElementById('font-name').value,
-                    styleName: 'Regular',
-                    unitsPerEm: 1000,
-                    ascender: 800,
-                    descender: -200,
-                    glyphs: []
-                });
-
-                const notdefGlyph = new opentype.Glyph({
+                const glyphs = [];
+                glyphs.push(new opentype.Glyph({
                     name: '.notdef',
                     unicode: 0,
                     advanceWidth: 500,
                     path: new opentype.Path()
-                });
-                font.glyphs.push(0, notdefGlyph);
+                }));
 
                 for (let item of fontItems) {
                     const char = item.inputElement.value;
                     if (!char) continue;
-                    const options = { ltres:1, qtres:1, scale:1, strokewidth:0, viewbox:true };
+
                     const svgData = await new Promise(resolve => {
-                        ImageTracer.imageToSVG(item.imgSrc, (svgstr) => { resolve(svgstr); }, options);
+                        ImageTracer.imageToSVG(item.imgSrc, (svgstr) => { resolve(svgstr); }, { ltres:1, qtres:1, scale:1 });
                     });
                     
                     const parser = new DOMParser();
                     const doc = parser.parseFromString(svgData, "image/svg+xml");
+                    const svgEl = doc.querySelector('svg');
+                    const imgW = parseFloat(svgEl.getAttribute('width'));
+                    const imgH = parseFloat(svgEl.getAttribute('height'));
+                    const scaleFactor = 800 / imgH;
+
                     const paths = doc.querySelectorAll('path');
                     const opentypePath = new opentype.Path();
                     
@@ -126,33 +118,38 @@
                         const d = p.getAttribute('d');
                         if(d) {
                             const tmpPath = opentype.Path.fromSVG(d);
-                            const scaleFactor = 5; 
                             for (let cmd of tmpPath.commands) {
-                                if (cmd.x) cmd.x = cmd.x * scaleFactor;
-                                if (cmd.y) cmd.y = 800 - (cmd.y * scaleFactor);
-                                if (cmd.x1) cmd.x1 = cmd.x1 * scaleFactor;
-                                if (cmd.y1) cmd.y1 = 800 - (cmd.y1 * scaleFactor);
-                                if (cmd.x2) cmd.x2 = cmd.x2 * scaleFactor;
-                                if (cmd.y2) cmd.y2 = 800 - (cmd.y2 * scaleFactor);
-                                opentypePath.commands.push(cmd);
+                                let newCmd = Object.assign({}, cmd);
+                                if (newCmd.x !== undefined) newCmd.x = newCmd.x * scaleFactor;
+                                if (newCmd.y !== undefined) newCmd.y = 800 - (newCmd.y * scaleFactor);
+                                if (newCmd.x1 !== undefined) newCmd.x1 = newCmd.x1 * scaleFactor;
+                                if (newCmd.y1 !== undefined) newCmd.y1 = 800 - (newCmd.y1 * scaleFactor);
+                                if (newCmd.x2 !== undefined) newCmd.x2 = newCmd.x2 * scaleFactor;
+                                if (newCmd.y2 !== undefined) newCmd.y2 = 800 - (newCmd.y2 * scaleFactor);
+                                opentypePath.commands.push(newCmd);
                             }
                         }
                     });
 
-                    const unicodeVal = char.charCodeAt(0);
-
-                    const glyph = new opentype.Glyph({
+                    glyphs.push(new opentype.Glyph({
                         name: char,
-                        unicode: unicodeVal,
-                        advanceWidth: 1000,
+                        unicode: char.charCodeAt(0),
+                        advanceWidth: imgW * scaleFactor,
                         path: opentypePath
-                    });
-                    font.glyphs.push(0, glyph);
+                    }));
                 }
+
+                const font = new opentype.Font({
+                    familyName: document.getElementById('font-name').value,
+                    styleName: 'Regular',
+                    unitsPerEm: 1000,
+                    ascender: 800,
+                    descender: -200,
+                    glyphs: glyphs
+                });
 
                 statusDiv.innerText = "生成完了！ダウンロードを開始します。";
                 font.download();
-                
             } catch (err) {
                 console.error(err);
                 statusDiv.innerText = "エラー: " + err.message;
