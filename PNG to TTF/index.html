@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>【PNG to TTFなら(ｲｰﾃｨｰﾑｽﾞ)ETMs】Easy TTF Maker system</title>
+    <title>【PNG⇒TTFなら(ｲｰﾃｨｰﾑｽﾞ)ETMs】Easy TTF Maker system</title>
     <style>
         body { font-family: sans-serif; max-width: 800px; margin: 20px auto; background: #f4f4f9; padding: 20px; }
         .upload-area { border: 3px dashed #bbb; padding: 30px; text-align: center; background: white; cursor: pointer; border-radius: 10px; }
@@ -22,8 +22,8 @@
     <h1>画期的なツール：画像ファイルからTTFファイルに変換</h1>
     
     <div class="upload-area" onclick="document.getElementById('file-input').click()">
-        <h3>ここをクリックして画像(PNG推奨)を選択</h3>
-        <p>※ファイル名が自動で文字になります（例: a.png → a）</p>
+        <h3>ここをクリックして画像を選択</h3>
+        <p>※1文字のファイル名なら自動入力されます</p>
         <input type="file" id="file-input" multiple accept="image/*" style="display:none">
     </div>
 
@@ -44,17 +44,16 @@
         const cardList = document.getElementById('card-list');
         const generateBtn = document.getElementById('generate-btn');
         const statusDiv = document.getElementById('status');
-        
         let fontItems = [];
 
         fileInput.addEventListener('change', async (e) => {
             const files = Array.from(e.target.files);
             if(files.length === 0) return;
-            statusDiv.innerText = `${files.length}枚の画像を読み込み中...`;
+            statusDiv.innerText = "読み込み中...";
             for (let file of files) {
                 await processFile(file);
             }
-            statusDiv.innerText = "文字を確認して生成ボタンを押してください";
+            statusDiv.innerText = "文字を入力して生成してください";
         });
 
         function processFile(file) {
@@ -62,20 +61,18 @@
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     const dataUrl = e.target.result;
-                    let name = file.name.split('.')[0].charAt(0);
+                    let rawName = file.name.split('.')[0];
+                    let name = rawName.length === 1 ? rawName : "";
                     const div = document.createElement('div');
                     div.className = 'char-card';
                     div.innerHTML = `
                         <img src="${dataUrl}">
                         <div>
-                            <input type="text" value="${name}" class="char-input" maxlength="1">
+                            <input type="text" value="${name}" class="char-input" maxlength="1" placeholder="?">
                         </div>
                     `;
                     cardList.appendChild(div);
-                    fontItems.push({
-                        imgSrc: dataUrl,
-                        inputElement: div.querySelector('.char-input')
-                    });
+                    fontItems.push({ imgSrc: dataUrl, inputElement: div.querySelector('.char-input') });
                     resolve();
                 };
                 reader.readAsDataURL(file);
@@ -85,25 +82,16 @@
         generateBtn.addEventListener('click', async () => {
             if (fontItems.length === 0) return alert("画像をアップロードしてください");
             generateBtn.disabled = true;
-            statusDiv.innerText = "処理中...";
-
+            statusDiv.innerText = "変換中...";
             try {
                 const glyphs = [];
-                glyphs.push(new opentype.Glyph({
-                    name: '.notdef',
-                    unicode: 0,
-                    advanceWidth: 500,
-                    path: new opentype.Path()
-                }));
-
+                glyphs.push(new opentype.Glyph({ name: '.notdef', unicode: 0, advanceWidth: 500, path: new opentype.Path() }));
                 for (let item of fontItems) {
                     const char = item.inputElement.value;
                     if (!char) continue;
-
                     const svgData = await new Promise(resolve => {
                         ImageTracer.imageToSVG(item.imgSrc, (svgstr) => { resolve(svgstr); }, { ltres:0.5, qtres:0.5, scale:1 });
                     });
-                    
                     const parser = new DOMParser();
                     const doc = parser.parseFromString(svgData, "image/svg+xml");
                     const svgEl = doc.querySelector('svg');
@@ -111,10 +99,8 @@
                     const imgW = parseFloat(viewBox[2]);
                     const imgH = parseFloat(viewBox[3]);
                     const scaleFactor = 800 / imgH;
-
                     const paths = doc.querySelectorAll('path');
                     const otPath = new opentype.Path();
-                    
                     paths.forEach(p => {
                         const d = p.getAttribute('d');
                         if(d) {
@@ -131,15 +117,8 @@
                             }
                         }
                     });
-
-                    glyphs.push(new opentype.Glyph({
-                        name: char,
-                        unicode: char.charCodeAt(0),
-                        advanceWidth: imgW * scaleFactor,
-                        path: otPath
-                    }));
+                    glyphs.push(new opentype.Glyph({ name: char, unicode: char.charCodeAt(0), advanceWidth: imgW * scaleFactor, path: otPath }));
                 }
-
                 const font = new opentype.Font({
                     familyName: document.getElementById('font-name').value,
                     styleName: 'Regular',
@@ -148,11 +127,10 @@
                     descender: -200,
                     glyphs: glyphs
                 });
-
                 font.download();
                 statusDiv.innerText = "完了";
             } catch (err) {
-                statusDiv.innerText = "エラー: " + err.message;
+                statusDiv.innerText = "エラー";
             } finally {
                 generateBtn.disabled = false;
             }
