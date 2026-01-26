@@ -11,6 +11,8 @@
         .char-card { background: white; padding: 10px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); text-align: center; }
         .char-card img { width: 80px; height: 80px; object-fit: contain; border: 1px solid #ddd; }
         .char-card input { width: 100px; font-size: 18px; text-align: center; margin-top: 5px; padding: 5px; border: 1px solid #ccc; border-radius: 4px; }
+        /* プレースホルダの色を本物の文字っぽく見せる */
+        .char-input::placeholder { color: #333; opacity: 1; }
         .controls { margin-top: 30px; text-align: center; padding: 20px; background: white; border-radius: 8px; }
         button { background: #007bff; color: white; border: none; padding: 12px 24px; font-size: 18px; border-radius: 5px; cursor: pointer; font-weight: bold; }
         button:hover { background: #0056b3; }
@@ -67,25 +69,24 @@
                 reader.onload = (e) => {
                     const div = document.createElement('div');
                     div.className = 'char-card';
-                    
                     const inp = document.createElement('input');
-                    // 🛡️ OSの予測変換エンジンをバイパスする設定
                     Object.assign(inp, {
                         type: 'text',
                         className: 'char-input',
                         autocomplete: 'off',
-                        autocorrect: 'off',
-                        autocapitalize: 'off',
                         spellcheck: false,
-                        inputMode: 'verbatim' // 純粋な文字入力を強制
+                        // 🛡️ 秘密：値(value)ではなくプレースホルダに本物の文字を入れる
+                        placeholder: String(raw)
+                    });
+                    
+                    // タップ（フォーカス）された瞬間にプレースホルダの値を実体化させる
+                    inp.addEventListener('focus', () => {
+                        if(!inp.value) inp.value = inp.placeholder;
                     });
 
                     div.innerHTML = `<img src="${e.target.result}">`;
                     div.appendChild(inp);
                     cardList.appendChild(div);
-
-                    // 🧬 0msで値をセットしつつ、ユーザーが変更したら即反映されるように保持
-                    inp.value = String(raw);
 
                     fontItems.push({ src: e.target.result, el: inp });
                     resolve();
@@ -101,8 +102,8 @@
             try {
                 const glyphs = [new opentype.Glyph({ name: '.notdef', unicode: 0, advanceWidth: 500, path: new opentype.Path() })];
                 for (let item of fontItems) {
-                    // 入力欄の現在の値をリアルタイムに取得
-                    const txt = String(item.el.value).trim();
+                    // 入力があればそれ、なければプレースホルダ(本物の文字)を採用
+                    const txt = (item.el.value || item.el.placeholder).trim();
                     if (!txt) continue;
 
                     const svg = await new Promise(res => ImageTracer.imageToSVG(item.src, (s) => res(s), { ltres:1, qtres:1 }));
@@ -128,7 +129,6 @@
                             });
                         }
                     });
-
                     const chars = Array.from(txt);
                     glyphs.push(new opentype.Glyph({
                         name: txt,
@@ -137,7 +137,6 @@
                         path: otP
                     }));
                 }
-
                 new opentype.Font({
                     familyName: document.getElementById('font-name').value || "MyFont",
                     styleName: 'Regular',
