@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>【PNG⇒TTFならETMs(ｲｰﾃｨｰﾑｽﾞ)】Easy TTF Maker system</title>
+    <title>【PNG⇒TTFならETMs】Easy TTF Maker system v2.1</title>
     <style>
         body { font-family: sans-serif; max-width: 800px; margin: 20px auto; background: #f4f4f9; padding: 20px; }
         .upload-area { border: 3px dashed #bbb; padding: 30px; text-align: center; background: white; cursor: pointer; border-radius: 10px; }
@@ -10,13 +10,27 @@
         .card-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; margin-top: 20px; }
         .char-card { background: white; padding: 10px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); text-align: center; }
         .char-card img { width: 80px; height: 80px; object-fit: contain; border: 1px solid #ddd; }
-        .char-card input { width: 100px; font-size: 18px; text-align: center; margin-top: 5px; padding: 5px; border: 1px solid #ccc; border-radius: 4px; }
-        /* プレースホルダの色を本物の文字っぽく見せる */
-        .char-input::placeholder { color: #333; opacity: 1; }
+        
+        /* 入力エリアの親：位置固定 */
+        .input-wrapper {
+            position: relative; width: 100px; height: 32px; margin: 5px auto 0;
+        }
+        /* 本物の文字を表示する層（Androidはここを無視する） */
+        .display-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            border: 1px solid #ccc; border-radius: 4px; background: #fff;
+            line-height: 32px; font-size: 18px; pointer-events: none; z-index: 1;
+        }
+        /* ユーザーが触る入力層（文字を透明にする） */
+        .real-input {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            border: none; background: transparent; color: transparent; /* 文字を透明に */
+            caret-color: #333; text-align: center; font-size: 18px; z-index: 2; outline: none;
+        }
+        .real-input:focus + .display-layer { border-color: #007bff; box-shadow: 0 0 3px rgba(0,123,255,0.5); }
+
         .controls { margin-top: 30px; text-align: center; padding: 20px; background: white; border-radius: 8px; }
         button { background: #007bff; color: white; border: none; padding: 12px 24px; font-size: 18px; border-radius: 5px; cursor: pointer; font-weight: bold; }
-        button:hover { background: #0056b3; }
-        button:disabled { background: #ccc; }
         #status { margin-top: 15px; color: #666; font-size: 14px; font-weight: bold; }
     </style>
 </head>
@@ -54,41 +68,47 @@
             if(files.length === 0) return;
             cardList.innerHTML = "";
             fontItems = [];
-            statusDiv.innerText = "読み込み中...";
             for (let file of files) {
                 const f = String(file.name);
                 const raw = f.substring(0, f.lastIndexOf('.')) || f;
-                await processFileHybrid(file, raw);
+                await addSecureCard(file, raw);
             }
             statusDiv.innerText = "読み込み完了";
         });
 
-        function processFileHybrid(file, raw) {
+        async function addSecureCard(file, char) {
             return new Promise((resolve) => {
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     const div = document.createElement('div');
                     div.className = 'char-card';
-                    const inp = document.createElement('input');
-                    Object.assign(inp, {
-                        type: 'text',
-                        className: 'char-input',
-                        autocomplete: 'off',
-                        spellcheck: false,
-                        // 🛡️ 秘密：値(value)ではなくプレースホルダに本物の文字を入れる
-                        placeholder: String(raw)
-                    });
                     
-                    // タップ（フォーカス）された瞬間にプレースホルダの値を実体化させる
-                    inp.addEventListener('focus', () => {
-                        if(!inp.value) inp.value = inp.placeholder;
-                    });
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'input-wrapper';
 
+                    const display = document.createElement('div');
+                    display.className = 'display-layer';
+                    display.innerText = char;
+
+                    const input = document.createElement('input');
+                    input.className = 'real-input';
+                    input.type = 'text';
+                    input.value = char;
+                    input.autocomplete = 'off';
+
+                    // 🛡️ 入力された瞬間に表示レイヤーへ同期
+                    input.oninput = () => {
+                        display.innerText = input.value;
+                    };
+
+                    wrapper.appendChild(input);
+                    wrapper.appendChild(display);
+                    
                     div.innerHTML = `<img src="${e.target.result}">`;
-                    div.appendChild(inp);
+                    div.appendChild(wrapper);
                     cardList.appendChild(div);
 
-                    fontItems.push({ src: e.target.result, el: inp });
+                    fontItems.push({ src: e.target.result, display: display });
                     resolve();
                 };
                 reader.readAsDataURL(file);
@@ -102,16 +122,14 @@
             try {
                 const glyphs = [new opentype.Glyph({ name: '.notdef', unicode: 0, advanceWidth: 500, path: new opentype.Path() })];
                 for (let item of fontItems) {
-                    // 入力があればそれ、なければプレースホルダ(本物の文字)を採用
-                    const txt = (item.el.value || item.el.placeholder).trim();
+                    const txt = item.display.innerText.trim();
                     if (!txt) continue;
-
+                    
                     const svg = await new Promise(res => ImageTracer.imageToSVG(item.src, (s) => res(s), { ltres:1, qtres:1 }));
                     const doc = new DOMParser().parseFromString(svg, "image/svg+xml");
                     const svgEl = doc.querySelector('svg');
                     const vb = svgEl.getAttribute('viewBox').split(' ');
                     const sc = 800 / (parseFloat(vb[3]) || 100);
-
                     const otP = new opentype.Path();
                     doc.querySelectorAll('path').forEach(p => {
                         const d = p.getAttribute('d');
