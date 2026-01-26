@@ -2,94 +2,204 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PNG to TTF Maker</title>
+    <title>簡単TTFメーカー</title>
     <style>
-        body { font-family: sans-serif; max-width: 800px; margin: 20px auto; padding: 0 20px; background: #f4f4f9; }
-        .upload-section { border: 2px dashed #ccc; padding: 40px; text-align: center; background: white; border-radius: 8px; cursor: pointer; }
-        #editor-container { margin-top: 20px; }
-        .char-card { display: flex; align-items: center; background: white; padding: 15px; margin-bottom: 10px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .char-card img { width: 64px; height: 64px; object-fit: contain; margin-right: 20px; border: 1px solid #eee; }
-        .char-card input { font-size: 24px; width: 60px; text-align: center; padding: 5px; border: 1px solid #ddd; border-radius: 4px; }
-        .controls { margin-top: 30px; text-align: center; }
-        button { padding: 10px 25px; font-size: 18px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 5px; }
-        button:hover { background: #0056b3; }
+        body { font-family: sans-serif; max-width: 800px; margin: 20px auto; background: #f4f4f9; padding: 20px; }
+        .upload-area { border: 3px dashed #bbb; padding: 30px; text-align: center; background: white; cursor: pointer; border-radius: 10px; }
+        .upload-area:hover { background-color: #f0f8ff; border-color: #007bff; }
+        .card-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; margin-top: 20px; }
+        .char-card { background: white; padding: 10px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); text-align: center; }
+        .char-card img { width: 80px; height: 80px; object-fit: contain; border: 1px solid #ddd; }
+        .char-card input { width: 40px; font-size: 20px; text-align: center; margin-top: 5px; padding: 5px; }
+        .controls { margin-top: 30px; text-align: center; padding: 20px; background: white; border-radius: 8px; }
+        button { background: #007bff; color: white; border: none; padding: 12px 24px; font-size: 18px; border-radius: 5px; cursor: pointer; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        #status { margin-top: 10px; color: #666; font-size: 14px; }
     </style>
 </head>
 <body>
 
-    <h2>🎨 PNG to TTF フォントメーカー</h2>
-    <p>PNG画像をアップロードして、対応する文字を入力してください。</p>
-
-    <div class="upload-section" onclick="document.getElementById('image-input').click()">
-        <p>ここをクリックして複数のPNGを選択</p>
-        <input type="file" id="image-input" multiple accept="image/png" style="display:none">
+    <h1>🎨 画像からTTFフォントを作成</h1>
+    
+    <div class="upload-area" onclick="document.getElementById('file-input').click()">
+        <h3>ここをクリックして画像(PNG)を選択</h3>
+        <p>※背景が透明、または白背景の黒文字画像を推奨</p>
+        <input type="file" id="file-input" multiple accept="image/png" style="display:none">
     </div>
 
-    <div id="editor-container"></div>
+    <div id="card-list" class="card-list"></div>
 
     <div class="controls">
-        <input type="text" id="font-name" placeholder="フォント名を入力" value="MyCustomFont">
-        <button id="generate-btn">TTFファイルを生成</button>
+        <label>フォント名: <input type="text" id="font-name" value="MyFont" style="padding: 5px;"></label>
+        <br><br>
+        <button id="generate-btn">TTFフォントを生成＆ダウンロード</button>
+        <div id="status"></div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/opentype.js@latest/dist/opentype.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/imagetracerjs@1.2.6/imagetracer_v1.2.6.min.js"></script>
 
     <script>
-        const imageInput = document.getElementById('image-input');
-        const editorContainer = document.getElementById('editor-container');
+        const fileInput = document.getElementById('file-input');
+        const cardList = document.getElementById('card-list');
         const generateBtn = document.getElementById('generate-btn');
+        const statusDiv = document.getElementById('status');
+        
+        // アップロードされたデータを保持するリスト
+        let fontItems = [];
 
-        // データを保持する配列
-        let glyphData = [];
-
-        // 画像が選択された時の処理
-        imageInput.addEventListener('change', (e) => {
+        fileInput.addEventListener('change', async (e) => {
             const files = Array.from(e.target.files);
-            
-            files.forEach((file, index) => {
+            if(files.length === 0) return;
+
+            statusDiv.innerText = `${files.length}枚の画像を読み込み中...`;
+
+            for (let file of files) {
+                await processFile(file);
+            }
+            statusDiv.innerText = "文字を入力して生成ボタンを押してください";
+        });
+
+        // 画像を読み込んでカードを表示する処理
+        function processFile(file) {
+            return new Promise((resolve) => {
                 const reader = new FileReader();
-                reader.onload = (event) => {
-                    const dataUrl = event.target.result;
-                    createCard(dataUrl, file.name);
+                reader.onload = (e) => {
+                    const dataUrl = e.target.result;
+                    
+                    // ファイル名から文字を推測 (1文字目を取得。もし数字ならそのまま)
+                    let suggestedChar = file.name.split('.')[0].charAt(0);
+                    
+                    // UI作成
+                    const div = document.createElement('div');
+                    div.className = 'char-card';
+                    div.innerHTML = `
+                        <img src="${dataUrl}">
+                        <div>
+                            <input type="text" value="${suggestedChar}" maxlength="1" class="char-input">
+                        </div>
+                    `;
+                    
+                    cardList.appendChild(div);
+                    
+                    // データ保持
+                    fontItems.push({
+                        imgSrc: dataUrl,
+                        inputElement: div.querySelector('.char-input')
+                    });
+                    resolve();
                 };
                 reader.readAsDataURL(file);
             });
-        });
-
-        // UIカードの作成
-        function createCard(src, fileName) {
-            const card = document.createElement('div');
-            card.className = 'char-card';
-            
-            // ファイル名から初期値を推測（例: A.png なら 'A'）
-            const defaultChar = fileName.split('.')[0][0] || '';
-
-            card.innerHTML = `
-                <img src="${src}">
-                <div>
-                    <label>割り当てる文字: </label>
-                    <input type="text" class="char-input" maxlength="1" value="${defaultChar}">
-                    <span style="color: #888; margin-left: 10px;">(${fileName})</span>
-                </div>
-            `;
-            editorContainer.appendChild(card);
         }
 
-        // TTF生成ロジック（骨組み）
-        generateBtn.addEventListener('click', () => {
-            const fontName = document.getElementById('font-name').value;
-            const cards = document.querySelectorAll('.char-card');
+        // ---------------------------------------------------------
+        //  ここが核心部分：画像をベクター変換してTTFにする
+        // ---------------------------------------------------------
+        generateBtn.addEventListener('click', async () => {
+            if (fontItems.length === 0) return alert("画像をアップロードしてください");
             
-            if (cards.length === 0) return alert('画像をアップロードしてください');
+            generateBtn.disabled = true;
+            statusDiv.innerText = "処理中... 画像を解析してベクター化しています...";
 
-            // ここで opentype.js を使ってフォントを組み立てる
-            // 1. 画像をCanvasで解析してパスを取得 (Potrace等が必要)
-            // 2. パスをグリフに変換
-            // 3. フォントとして書き出し
-            
-            alert(fontName + ' の生成を開始します（実際のパス変換ロジックを次に組み込みます）');
-            console.log('生成対象のカード数:', cards.length);
+            try {
+                // 1. 基本のフォントデータを作成
+                // (空のフォント入れ物を用意)
+                const font = new opentype.Font({
+                    familyName: document.getElementById('font-name').value,
+                    styleName: 'Regular',
+                    unitsPerEm: 1000,
+                    ascender: 800,
+                    descender: -200,
+                    glyphs: []
+                });
+
+                // .notdef (未定義文字) を追加しないとエラーになることがあるので作成
+                const notdefGlyph = new opentype.Glyph({
+                    name: '.notdef',
+                    unicode: 0,
+                    advanceWidth: 500,
+                    path: new opentype.Path()
+                });
+                font.glyphs.push(0, notdefGlyph); // インデックス0に登録
+
+                // 2. 各画像を処理してグリフ(文字)化する
+                for (let item of fontItems) {
+                    const char = item.inputElement.value;
+                    if (!char) continue; // 文字が空ならスキップ
+
+                    // ImageTracerを使って画像をSVGパスデータに変換
+                    // オプション: ltres(精度), colorsなど調整可能
+                    const options = { ltres:1, qtres:1, scale:1, strokewidth:0, viewbox:true };
+                    const svgData = await new Promise(resolve => {
+                        ImageTracer.imageToSVG(item.imgSrc, (svgstr) => {
+                            resolve(svgstr);
+                        }, options);
+                    });
+                    
+                    // SVG文字列からパスデータ(d属性)を抽出する簡易正規表現
+                    // ※ImageTracerは複数のpathを返すことがあるが、ここでは結合または最初を使用
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(svgData, "image/svg+xml");
+                    const paths = doc.querySelectorAll('path');
+
+                    const opentypePath = new opentype.Path();
+                    
+                    // 抽出されたSVGパスをopentype形式に変換
+                    // 座標変換: SVG(Yが下向き) -> TTF(Yが上向き) に合わせるため反転が必要
+                    // ここでは簡易的にopentype.jsの機能を使ってパスを生成します
+                    
+                    paths.forEach(p => {
+                        const d = p.getAttribute('d');
+                        if(d) {
+                            // opentype.jsのfromSVGで変換できる場合があるが
+                            // 座標系を合わせるのが難しいため、パスコマンドを解析して反転させるのが一般的
+                            // 今回は簡易的にpath2dとして読み込ませます
+                            const tmpPath = opentype.Path.fromSVG(d);
+                            
+                            // 座標調整 (スケールと反転)
+                            // ImageTracerの結果は画像サイズ依存。1000x1000のemboxに合わせる
+                            const scale = 1000 / 100; // 仮のスケール（画像サイズにより調整必要）
+                            
+                            for (let cmd of tmpPath.commands) {
+                                // Y軸を反転させて、位置を調整 (800はベースラインからの高さ)
+                                const yOffset = 800;
+                                const scaleFactor = 5; // 画像サイズに応じて変える必要あり
+                                
+                                if (cmd.x) cmd.x = cmd.x * scaleFactor;
+                                if (cmd.y) cmd.y = 800 - (cmd.y * scaleFactor);
+                                if (cmd.x1) cmd.x1 = cmd.x1 * scaleFactor;
+                                if (cmd.y1) cmd.y1 = 800 - (cmd.y1 * scaleFactor);
+                                if (cmd.x2) cmd.x2 = cmd.x2 * scaleFactor;
+                                if (cmd.y2) cmd.y2 = 800 - (cmd.y2 * scaleFactor);
+                                
+                                opentypePath.commands.push(cmd);
+                            }
+                        }
+                    });
+
+                    // グリフを作成
+                    const glyph = new opentype.Glyph({
+                        name: char,
+                        unicode: char.charCodeAt(0),
+                        advanceWidth: 1000,
+                        path: opentypePath
+                    });
+                    
+                    font.glyphs.push(0, glyph);
+                }
+
+                // 3. ダウンロード実行
+                statusDiv.innerText = "生成完了！ダウンロードを開始します。";
+                font.download();
+                
+            } catch (err) {
+                console.error(err);
+                statusDiv.innerText = "エラーが発生しました: " + err.message;
+                alert("エラー: " + err.message);
+            } finally {
+                generateBtn.disabled = false;
+            }
         });
     </script>
 </body>
