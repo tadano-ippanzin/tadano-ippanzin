@@ -53,8 +53,9 @@
             fontItems = [];
             statusDiv.innerText = "読み込み中...";
             for (let file of files) {
-                const rawName = String(file.name).split('.').slice(0, -1).join('.');
-                await processFile(file, rawName);
+                const nameParts = file.name.split('.');
+                const rawName = nameParts.length > 1 ? nameParts.slice(0, -1).join('.') : file.name;
+                await processFile(file, String(rawName));
             }
             statusDiv.innerText = "読み込み完了";
             statusDiv.style.color = "#666";
@@ -78,6 +79,15 @@
 
         generateBtn.addEventListener('click', async () => {
             if (fontItems.length === 0) return;
+
+            for (let item of fontItems) {
+                if (!item.inputElement.value.trim()) {
+                    statusDiv.innerText = "エラー: 文字が入力されていないカードがあります。";
+                    statusDiv.style.color = "#d9534f";
+                    return;
+                }
+            }
+
             generateBtn.disabled = true;
             statusDiv.innerText = "処理中...";
             statusDiv.style.color = "#007bff";
@@ -87,9 +97,7 @@
                 glyphs.push(new opentype.Glyph({ name: '.notdef', unicode: 0, advanceWidth: 500, path: new opentype.Path() }));
                 
                 for (let item of fontItems) {
-                    const charText = String(item.inputElement.value);
-                    if (!charText) continue;
-
+                    const charText = String(item.inputElement.value).trim();
                     const svgData = await new Promise((resolve) => {
                         ImageTracer.imageToSVG(item.imgSrc, (svg) => resolve(svg), { ltres:1, qtres:1, scale:1 });
                     });
@@ -97,8 +105,8 @@
                     const doc = new DOMParser().parseFromString(svgData, "image/svg+xml");
                     const svgEl = doc.querySelector('svg');
                     const viewBox = svgEl.getAttribute('viewBox').split(' ');
-                    const imgW = parseFloat(viewBox[2]);
-                    const imgH = parseFloat(viewBox[3]);
+                    const imgW = parseFloat(viewBox[2]) || 100;
+                    const imgH = parseFloat(viewBox[3]) || 100;
                     const scale = 800 / imgH;
 
                     const otPath = new opentype.Path();
@@ -128,18 +136,19 @@
                     }));
                 }
 
-                new opentype.Font({
+                const font = new opentype.Font({
                     familyName: document.getElementById('font-name').value || "MyFont",
                     styleName: 'Regular',
                     unitsPerEm: 1000,
                     ascender: 800,
                     descender: -200,
                     glyphs: glyphs
-                }).download();
+                });
+                font.download();
                 statusDiv.innerText = "完了";
                 statusDiv.style.color = "#28a745";
             } catch (err) {
-                statusDiv.innerText = "エラー: " + err.message;
+                statusDiv.innerText = "システムエラーが発生しました。";
             } finally {
                 generateBtn.disabled = false;
             }
