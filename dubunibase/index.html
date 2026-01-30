@@ -3,76 +3,103 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dubunibase Cipher (デュブニベース暗号)</title>
+    <title id="pageTitle">ダビュニベース暗号</title>
     <style>
-        body { font-family: sans-serif; background: #1a1a2e; color: #e94560; text-align: center; padding: 20px; }
-        textarea { width: 90%; height: 100px; margin: 10px 0; background: #16213e; color: #fff; border: 1px solid #e94560; border-radius: 5px; padding: 10px; }
-        button { background: #e94560; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; }
-        button:hover { background: #ff2e63; }
-        .container { max-width: 600px; margin: auto; background: #0f3460; padding: 20px; border-radius: 15px; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
-        h1 { font-size: 1.5rem; margin-bottom: 20px; }
+        :root { --val: 30; }
+        body { font-family: 'Segoe UI', sans-serif; text-align: center; padding: 20px; background-color: rgb(var(--val), var(--val), var(--val)); color: rgb(calc(255 - var(--val)), calc(255 - var(--val)), calc(255 - var(--val))); transition: 0.3s; margin: 0; min-height: 100vh; }
+        .bg-gear { position: fixed; bottom: -10vmin; right: -10vmin; font-size: 80vmin; z-index: -1; opacity: 0.05; user-select: none; pointer-events: none; animation: spin 60s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .container { max-width: 600px; margin: auto; padding: 30px 20px; border-radius: 16px; background-color: rgba(calc(var(--val) + 15), calc(var(--val) + 15), calc(var(--val) + 15), 0.85); backdrop-filter: blur(10px); box-shadow: 0 15px 35px rgba(0,0,0,0.4); border: 1px solid rgba(128,128,128,0.2); }
+        textarea { width: 95%; height: 120px; margin: 15px auto; padding: 15px; border-radius: 8px; font-size: 16px; box-sizing: border-box; display: block; background-color: rgba(calc(var(--val) - 10), calc(var(--val) - 10), calc(var(--val) - 10), 0.9); color: inherit; border: 2px solid rgba(128,128,128,0.3); resize: vertical; }
+        .btn-group { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        button { padding: 8px 15px; font-size: 14px; cursor: pointer; border-radius: 6px; transition: 0.3s; font-weight: bold; background-color: rgb(calc(255 - var(--val)), calc(255 - var(--val)), calc(255 - var(--val))); color: rgb(var(--val), var(--val), var(--val)); border: 1px solid rgba(128,128,128,0.5); }
+        button:hover { transform: translateY(-1px); filter: brightness(0.8); }
+        .lang-nav { margin-top: 15px; font-size: 12px; opacity: 0.5; }
+        .lang-nav a { color: inherit; text-decoration: none; margin: 0 5px; }
     </style>
 </head>
 <body>
+    <div class="bg-gear">⚙️</div>
     <div class="container">
-        <h1>Dubunibase Cipher⚙️</h1>
-        <textarea id="inputText" placeholder="暗号化するテキストを入力..."></textarea>
-        <br>
-        <button onclick="dubunibase()">暗号化 (Execute)</button>
-        <br>
-        <textarea id="outputText" readonly placeholder="結果がここに表示されます..."></textarea>
-        <br>
-        <button onclick="tweet()">X</button>
+        <h2 id="dispTitle">ダビュニベース暗号</h2>
+        <textarea id="inputText" placeholder="Input text..."></textarea>
+        <div class="btn-group">
+            <button id="btnEnc" onclick="execute('enc')" style="background:#e94560; color:#fff;">暗号化</button>
+            <button id="btnDec" onclick="execute('dec')">復号化</button>
+        </div>
+        <textarea id="outputText" readonly placeholder="Result..."></textarea>
+        <div class="btn-group">
+            <button id="btnCopy" onclick="copyText()">コピー</button>
+            <button id="btnTweet" onclick="tweet()" style="background:#000; color:#fff;">𝕏ポスト</button>
+            <button id="btnClear" onclick="clearUI()">全消去</button>
+        </div>
+        <div class="lang-nav">
+            <a href="?lang=ja">JP</a> | <a href="?lang=x-tdp">X-TDP</a>
+        </div>
     </div>
 
     <script>
-        const B62 = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        const i18n = {
+            ja: { title: "ダビュニベース暗号", enc: "暗号化", dec: "復号化", copy: "コピー", tweet: "𝕏ポスト", clear: "全消去", confirm: "消去しますか？" },
+            "x-tdp": { title: "ateras dubunjbase", enc: "aterasŋaŋ", dec: "ateras-out", copy: "copy", tweet: "𝕏 Post", clear: "Clear", confirm: "dubu?" }
+        };
+        let lang = new URLSearchParams(window.location.search).get('lang') || 'ja';
+        const t = i18n[lang] || i18n.ja;
+        document.getElementById('dispTitle').innerText = t.title;
+        document.getElementById('btnEnc').innerText = t.enc;
+        document.getElementById('btnDec').innerText = t.dec;
+        document.getElementById('btnCopy').innerText = t.copy;
+        document.getElementById('btnTweet').innerText = t.tweet;
+        document.getElementById('btnClear').innerText = t.clear;
 
-        function dubunibase() {
-            const text = document.getElementById('inputText').value;
-            if(!text) return;
+        const table = [];
+        const ranges = [[0x0021, 0x0026], [0x0028, 0x007E], [0x3041, 0x3096], [0x30A1, 0x30FA], [0x4E00, 0x9FFF], [0xAC00, 0xD7A3], [0x3400, 0x4DBF], [0x20000, 0x2678E]];
+        for (const [s, e] of ranges) for (let i = s; i <= e; i++) table.push(String.fromCodePoint(i));
+        const revTable = new Map(table.map((c, i) => [c, i]));
 
+        function execute(mode) {
+            const input = document.getElementById('inputText').value;
+            if (!input) return;
+            let result = "";
             try {
-                // 1. Unicode分解 & 2. 再分解 (\uXXXX -> \u005c\u0075...)
-                let step2 = "";
-                for (let char of text) {
-                    let u = "\\u" + char.charCodeAt(0).toString(16).padStart(4, '0');
-                    for (let i = 0; i < u.length; i++) {
-                        step2 += "\\u" + u.charCodeAt(i).toString(16).padStart(4, '0');
+                if (mode === 'enc') {
+                    let step2 = "";
+                    for (let char of input) {
+                        let u = "\\u" + char.charCodeAt(0).toString(16).padStart(4, '0');
+                        for (let s of u) step2 += "\\u" + s.charCodeAt(0).toString(16).padStart(4, '0');
                     }
-                }
-
-                // 3. Binary化
-                let binStr = "";
-                for (let i = 0; i < step2.length; i++) {
-                    binStr += step2.charCodeAt(i).toString(2).padStart(16, '0');
-                }
-
-                // 4. Base62化 (BigIntで処理)
-                let num = BigInt("0b" + binStr);
-                let b62Result = "";
-                while (num > 0n) {
-                    b62Result = B62[Number(num % 62n)] + b62Result;
-                    num /= 62n;
-                }
-
-                // 5. Unicodeを1増やす
-                const finalResult = Array.from(b62Result).map(c => 
-                    String.fromCharCode(c.charCodeAt(0) + 1)
-                ).join('');
-
-                document.getElementById('outputText').value = finalResult;
-            } catch (e) {
-                alert("エラーが発生しました。入力が長すぎる可能性があります。");
-            }
+                    const data = new TextEncoder().encode(step2);
+                    let step4 = "";
+                    for (let i = 0; i < data.length; i += 2) {
+                        let val = (data[i] << 8) | (data[i+1] || 0);
+                        step4 += table[val % table.length];
+                    }
+                    for (let c of Array.from(step4)) result += String.fromCodePoint(c.codePointAt(0) + 1);
+                } else {
+                    let step0 = "";
+                    for (let c of Array.from(input)) step0 += String.fromCodePoint(c.codePointAt(0) - 1);
+                    let bytes = [];
+                    for (let c of Array.from(step0)) {
+                        let val = revTable.get(c);
+                        if (val !== undefined) bytes.push(val >> 8, val & 0xFF);
+                    }
+                    let step2_rev = new TextDecoder().decode(new Uint8Array(bytes));
+                    let step1_rev = step2_rev.replace(/\\u([0-9a-fA-F]{4})/g, (m, g) => String.fromCharCode(parseInt(g, 16)));
+                    result = step1_rev.replace(/\\u([0-9a-fA-F]{4})/g, (m, g) => String.fromCharCode(parseInt(g, 16)));
+        }
+                document.getElementById('outputText').value = result;
+            } catch (e) { alert("Error"); }
         }
 
+        function copyText() { const t = document.getElementById('outputText'); t.select(); document.execCommand('copy'); }
+        function clearUI() { if(confirm(t.confirm)) { document.getElementById('inputText').value=''; document.getElementById('outputText').value=''; } }
         function tweet() {
-            const t = document.getElementById('outputText').value;
-            if(!t) return;
-            const shareUrl = "https://tadano-ippanzin.is-a.dev/dubunibase/";
-            const tweetText = `ダビュニベース暗号を実行しました⚙️\n『${t}』`;
-            window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}&url=${encodeURIComponent(shareUrl)}`, '_blank');
+            const res = document.getElementById('outputText').value;
+            if(!res) return;
+            const creator = lang === 'x-tdp' ? 'thererŋaŋe' : '製作者';
+            const url = `https://tadano-ippanzin.is-a.dev/dubunibase/?lang=${lang}`;
+            const tweetText = `${t.title}⚙️\n『${res}』\n${url}\n${creator}：\n@tadanoippanjhin\n%23BR65535`;
+            window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`, '_blank');
         }
     </script>
 </body>
