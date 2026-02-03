@@ -2,65 +2,83 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>周波数指定トーンジェネレーター</title>
+    <title>指定周波数テストツール</title>
     <style>
-        :root { --primary: #4a90e2; --bg: #f5f7fa; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg); display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-        .container { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 400px; }
-        h1 { font-size: 1.25rem; color: #333; margin-bottom: 1.5rem; text-align: center; }
-        .input-group { margin-bottom: 1.2rem; }
-        label { display: block; font-size: 0.85rem; color: #666; margin-bottom: 0.5rem; }
-        input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box; transition: border-color 0.2s; }
-        input:focus { border-color: var(--primary); outline: none; }
-        .btn-play { width: 100%; padding: 12px; background-color: var(--primary); color: white; border: none; border-radius: 6px; font-size: 1rem; font-weight: bold; cursor: pointer; transition: background 0.2s; }
-        .btn-play:hover { background-color: #357abd; }
-        .btn-play:active { transform: scale(0.98); }
-        .status { margin-top: 1rem; text-align: center; font-size: 0.9rem; color: #888; height: 1.2rem; }
+        body { font-family: sans-serif; display: flex; justify-content: center; padding-top: 50px; background: #f0f2f5; }
+        .card { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); width: 320px; }
+        .field { margin-bottom: 1rem; }
+        label { display: block; font-size: 0.8rem; margin-bottom: 0.3rem; color: #666; }
+        input, select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        
+        /* 追加：12乗根計算エリア (UIを邪魔しないデザイン) */
+        .calc-area { background: #f9f9f9; padding: 10px; border: 1px dashed #bbb; border-radius: 6px; margin-bottom: 1.5rem; }
+        .calc-row { display: flex; align-items: center; gap: 5px; margin-top: 5px; }
+        .calc-row input { padding: 4px; }
+        .apply-btn { background: #666; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; cursor: pointer; margin-top: 5px; width: auto; }
+        
+        button.main-play { width: 100%; padding: 10px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        button.main-play:hover { background: #0056b3; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h1>トーンジェネレーター</h1>
+<div class="card">
+    <h3 style="margin-top:0">トーンジェネレーター</h3>
     
-    <div class="input-group">
-        <label>周波数 (Hz) - 例: 440 (ラ), 880 (高いラ)</label>
-        <input type="number" id="freq" value="440" min="20" max="20000">
+    <div class="calc-area">
+        <label style="font-weight:bold; color:#333;">12乗根計算 (平均律)</label>
+        <div class="calc-row">
+            <input type="number" id="base-f" value="440" title="基準Hz">
+            <span>× 2<sup>n/12</sup></span>
+        </div>
+        <div class="calc-row">
+            <label>n(半音):</label>
+            <input type="number" id="steps" value="0" style="width:60px">
+            <button class="apply-btn" onclick="applyCalc()">Hzに適用</button>
+        </div>
     </div>
 
-    <div class="input-group">
+    <div class="field">
+        <label>周波数 (Hz)</label>
+        <input type="number" id="freq" value="440" step="0.001">
+    </div>
+
+    <div class="field">
         <label>再生時間 (秒)</label>
-        <input type="number" id="duration" value="1.0" step="0.1" min="0.1">
+        <input type="number" id="duration" value="1.0" step="0.1">
     </div>
 
-    <div class="input-group">
-        <label>波形の種類</label>
+    <div class="field">
+        <label>波形</label>
         <select id="type">
-            <option value="sine">サイン波 (柔らかい)</option>
-            <option value="square">矩形波 (電子音)</option>
-            <option value="sawtooth">のこぎり波 (鋭い)</option>
-            <option value="triangle">三角波 (こもった音)</option>
+            <option value="sine">サイン波</option>
+            <option value="square">矩形波</option>
+            <option value="sawtooth">のこぎり波</option>
+            <option value="triangle">三角波</option>
         </select>
     </div>
 
-    <button class="btn-play" onclick="playTone()">音を鳴らす</button>
-    <div id="status" class="status"></div>
+    <button class="main-play" onclick="playTone()">再生する</button>
 </div>
 
 <script>
     let audioCtx = null;
 
-    function playTone() {
-        // AudioContextの初期化
-        if (!audioCtx) {
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        }
+    // 12乗根の計算と適用
+    function applyCalc() {
+        const base = parseFloat(document.getElementById('base-f').value);
+        const n = parseFloat(document.getElementById('steps').value);
+        // f = base * 2^(n/12)
+        const result = base * Math.pow(2, n / 12);
+        document.getElementById('freq').value = result.toFixed(3);
+    }
 
-        const freq = parseFloat(document.getElementById('freq').value);
-        const duration = parseFloat(document.getElementById('duration').value);
+    function playTone() {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        const freq = document.getElementById('freq').value;
+        const duration = document.getElementById('duration').value;
         const type = document.getElementById('type').value;
-        const status = document.getElementById('status');
 
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
@@ -68,26 +86,13 @@
         osc.type = type;
         osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
 
-        // --- エンベロープ（音量の制御） ---
-        const now = audioCtx.currentTime;
-        // 鳴り始めの「プツッ」を防ぐ（0.01秒でフェードイン）
-        gain.gain.setValueAtTime(0, now);
-        gain.gain.linearRampToValueAtTime(0.5, now + 0.01); 
-        // 終わりの「プツッ」を防ぐ（0.05秒でフェードアウト）
-        gain.gain.setValueAtTime(0.5, now + duration - 0.05);
-        gain.gain.linearRampToValueAtTime(0, now + duration);
+        gain.gain.setValueAtTime(0, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.2, audioCtx.currentTime + 0.02);
+        gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + parseFloat(duration));
 
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-
+        osc.connect(gain).connect(audioCtx.destination);
         osc.start();
-        osc.stop(now + duration);
-
-        // 状態表示
-        status.innerText = "再生中...";
-        setTimeout(() => {
-            status.innerText = "";
-        }, duration * 1000);
+        osc.stop(audioCtx.currentTime + parseFloat(duration));
     }
 </script>
 
