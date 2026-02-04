@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>404 - Not Found</title>
+    <style>
+        :root { --bg: #0d1117; --panel: #161b22; --accent: #58a6ff; --text: #c9d1d9; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; background: var(--bg); color: var(--text); margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        
+        .container { text-align: center; max-width: 500px; padding: 40px; }
+        h1 { font-size: 6rem; margin: 0; color: var(--accent); letter-spacing: -2px; }
+        p { font-size: 1.25rem; margin: 10px 0 30px; font-weight: 300; }
+        
+        .nav-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .nav-item { background: var(--panel); border: 1px solid #30363d; border-radius: 6px; padding: 15px; text-decoration: none; color: var(--text); font-size: 0.9rem; transition: 0.2s; }
+        .nav-item:hover { border-color: var(--accent); background: #1c2128; transform: translateY(-2px); }
+        .nav-item.home { grid-column: 1 / span 2; background: var(--accent); color: #fff; font-weight: bold; }
+        
+        .status-code { font-family: monospace; opacity: 0.5; margin-top: 40px; display: block; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>404</h1>
+    <p>お探しのツールは見つかりませんでした。</p>
+
+    <div class="nav-grid">
+        <a href="/" class="nav-item home">🏠 トップページへ戻る</a>
+        <a href="/music/" class="nav-item">🎵 Music Tools</a>
+        <a href="javascript:history.back()" class="nav-item">🔙 元の場所へ戻る</a>
+    </div>
+
+    <span class="status-code">HTTP_STATUS_CODE: 404_NOT_FOUND</span>
+</div>
+
+</body>
+</html>
