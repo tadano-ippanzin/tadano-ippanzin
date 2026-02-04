@@ -2,155 +2,181 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Ultimate Freq System (UFATSAD)</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <title>UFATSAD - Mathematical Frequency Composer</title>
     <style>
-        :root { --bg: #050505; --accent: #00ff41; --panel: #111; }
-        body { font-family: 'Courier New', monospace; background: var(--bg); color: var(--accent); margin: 0; display: flex; flex-direction: column; height: 100vh; }
-        .toolbar { background: var(--panel); padding: 10px; border-bottom: 2px solid var(--accent); display: flex; gap: 8px; flex-wrap: wrap; font-size: 12px; }
-        .group { border: 1px solid #333; padding: 5px; display: flex; gap: 5px; align-items: center; }
+        :root { --bg: #050505; --accent: #00ff41; --panel: #111; --guide: #1a1a1a; }
+        body { font-family: 'Courier New', monospace; background: var(--bg); color: var(--accent); margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        
+        .toolbar { background: var(--panel); padding: 10px; border-bottom: 2px solid var(--accent); display: flex; gap: 15px; flex-wrap: wrap; align-items: center; font-size: 12px; }
+        .group { border: 1px solid #333; padding: 5px 10px; display: flex; gap: 10px; align-items: center; }
+        
         #viewport { flex-grow: 1; overflow: auto; position: relative; background: #000; }
-        #canvas { width: 5000px; height: 1200px; position: relative; cursor: crosshair; }
-        .note { position: absolute; background: rgba(0,255,65,0.4); border: 1px solid var(--accent); color: white; font-size: 10px; }
-        button { background: var(--accent); color: #000; border: none; padding: 4px 8px; cursor: pointer; font-weight: bold; }
-        input[type="file"] { display: none; }
-        .file-label { background: #333; color: #0f0; padding: 4px 8px; cursor: pointer; border: 1px solid var(--accent); }
+        #canvas { width: 5000px; height: 1200px; position: relative; cursor: crosshair;
+            background-image: linear-gradient(90deg, var(--guide) 1px, transparent 1px);
+            background-size: 100px 100%;
+        }
+        
+        .note { position: absolute; background: rgba(0,255,65,0.4); border: 1px solid var(--accent); color: white; font-size: 9px; padding: 2px; pointer-events: all; white-space: nowrap; }
+        .guide-line { position: absolute; left: 0; width: 100%; height: 1px; background: #111; pointer-events: none; }
+        
+        button { background: var(--accent); color: #000; border: none; padding: 4px 10px; cursor: pointer; font-weight: bold; }
+        input, select { background: #000; color: var(--accent); border: 1px solid var(--accent); font-size: 11px; }
     </style>
 </head>
 <body>
 
 <div class="toolbar">
     <div class="group">
-        <strong>COMP:</strong>
+        <strong>TUNING:</strong>
+        <select id="mode" onchange="updateGuides()">
+            <option value="equal">平均律 (12-TET / 2^(n/12))</option>
+            <option value="just">純正律 (Just / Integer Ratio)</option>
+            <option value="custom">カスタム (Free Hz)</option>
+        </select>
+        <span>A= <input type="number" id="baseA" value="440" step="0.1" style="width:50px" oninput="updateGuides()">Hz</span>
+    </div>
+    
+    <div class="group">
         <button onclick="play()">PLAY</button>
-        <button onclick="stop()">STOP</button>
+        <button onclick="stop()" style="background:#f44">STOP</button>
     </div>
 
     <div class="group">
-        <strong>LOAD (Any):</strong>
-        <label class="file-label">📂 UPLOAD<input type="file" id="import-file" onchange="handleImport(this)"></label>
-    </div>
-
-    <div class="group">
-        <strong>SAVE DATA:</strong>
-        <button onclick="exportSingle('json')">JSON</button>
-        <button onclick="exportSingle('xml')">XML</button>
-        <button onclick="exportSingle('bin')">BIN</button>
-        <button onclick="exportSingle('midi')">MIDI</button>
-        <button onclick="exportHTML()">HTML/HTM</button>
-    </div>
-
-    <div class="group">
-        <strong>AUDIO:</strong>
-        <button onclick="exportAudio('wav')">WAV</button>
-        <button onclick="exportAudio('mp3')">MP3</button>
-    </div>
-
-    <div class="group" style="border-color: #ff0;">
-        <strong>ARCHIVE:</strong>
-        <button onclick="exportUFATSAD()" style="background:#ff0">SAVE .UFATSAD (ZIP)</button>
+        <button onclick="exportUFATSAD()">SAVE .ufatsad</button>
+        <span style="opacity:0.6">Drop to Load</span>
     </div>
 </div>
 
-<div id="viewport">
-    <div id="canvas" onclick="createNote(event)"></div>
+<div id="viewport" ondragover="event.preventDefault()" ondrop="handleDrop(event)">
+    <div id="canvas" onclick="createNote(event)">
+        <div id="playhead" style="position:absolute; top:0; width:1px; height:100%; background:red; display:none; z-index:100;"></div>
+    </div>
 </div>
 
 <script>
     let notes = [];
     let audioCtx = null;
+    const MAGIC = "UFATSAD";
+    const XOR_KEY = 0xAF;
+    const JUST_RATIOS = [1, 16/15, 9/8, 6/5, 5/4, 4/3, 45/32, 3/2, 8/5, 5/3, 9/5, 15/8];
 
-    // --- 基本操作 ---
+    // --- 計算コア ---
+    function getExactHz(refA, value, mode) {
+        if (mode === 'equal') {
+            // value = 基準Aからの半音数n
+            return refA * Math.pow(2, value / 12);
+        } else if (mode === 'just') {
+            // value = {octave, ratioIndex}
+            const baseC = refA / Math.pow(2, 9/12); // AからC1を算出
+            return (baseC * Math.pow(2, value.oct)) * JUST_RATIOS[value.idx];
+        }
+        return value; // custom
+    }
+
+    // --- 描画・操作 ---
+    function updateGuides() {
+        const canvas = document.getElementById('canvas');
+        canvas.querySelectorAll('.guide-line').forEach(l => l.remove());
+        const mode = document.getElementById('mode').value;
+        const refA = parseFloat(document.getElementById('baseA').value);
+
+        if (mode === 'custom') return;
+
+        for (let n = -48; n <= 48; n++) { // 広い範囲でガイド作成
+            const hz = mode === 'equal' ? refA * Math.pow(2, n/12) : 0; // 簡易
+            const y = 1200 - hz;
+            if (y > 0 && y < 1200) {
+                const line = document.createElement('div');
+                line.className = 'guide-line';
+                line.style.top = y + 'px';
+                if (n % 12 === 0) line.style.background = '#333';
+                canvas.appendChild(line);
+            }
+        }
+    }
+
     function createNote(e) {
         if(e.target !== e.currentTarget) return;
         const rect = e.currentTarget.getBoundingClientRect();
-        const n = { id: Date.now(), x: Math.floor((e.clientX - rect.left)/25)*25, y: e.clientY - rect.top, w: 100, hz: (1200 - (e.clientY - rect.top)).toFixed(1) };
-        notes.push(n);
+        const mode = document.getElementById('mode').value;
+        const refA = parseFloat(document.getElementById('baseA').value);
+        const y = e.clientY - rect.top;
+        const rawHz = 1200 - y;
+
+        let noteValue;
+        if (mode === 'equal') {
+            noteValue = Math.round(12 * Math.log2(rawHz / refA));
+        } else if (mode === 'just') {
+            const baseC = refA / Math.pow(2, 9/12);
+            const oct = Math.floor(Math.log2(rawHz / baseC));
+            const ratio = rawHz / (baseC * Math.pow(2, oct));
+            const idx = JUST_RATIOS.reduce((p, c, i) => Math.abs(c - ratio) < Math.abs(JUST_RATIOS[p] - ratio) ? i : p, 0);
+            noteValue = { oct, idx };
+        } else {
+            noteValue = rawHz;
+        }
+
+        const hz = getExactHz(refA, noteValue, mode);
+        notes.push({ id: Date.now(), x: Math.floor((e.clientX - rect.left)/25)*25, v: noteValue, w: 100, mode });
         render();
     }
 
     function render() {
-        const c = document.getElementById('canvas');
-        c.querySelectorAll('.note').forEach(n => n.remove());
+        const canvas = document.getElementById('canvas');
+        const refA = parseFloat(document.getElementById('baseA').value);
+        canvas.querySelectorAll('.note').forEach(n => n.remove());
+        
         notes.forEach(n => {
-            const d = document.createElement('div');
-            d.className = 'note';
-            d.style.left = n.x+'px'; d.style.top = (n.y-10)+'px'; d.style.width = n.w+'px'; d.style.height = '20px';
-            d.innerText = n.hz;
-            d.oncontextmenu = (e) => { e.preventDefault(); notes = notes.filter(x => x.id !== n.id); render(); };
-            c.appendChild(d);
+            const hz = getExactHz(refA, n.v, n.mode);
+            const div = document.createElement('div');
+            div.className = 'note';
+            div.style.left = n.x+'px'; div.style.top = (1200 - hz - 10)+'px'; div.style.width = n.w+'px';
+            div.innerText = n.mode === 'equal' ? `2^(${n.v}/12)` : hz.toFixed(2);
+            div.oncontextmenu = (e) => { e.preventDefault(); notes = notes.filter(x => x.id !== n.id); render(); };
+            canvas.appendChild(div);
         });
     }
 
-    // --- インポート処理 ---
-    async function handleImport(input) {
-        const file = input.files[0];
-        if(!file) return;
-        const ext = file.name.split('.').pop().toLowerCase();
-        
-        if(ext === 'ufatsad' || ext === 'zip') {
-            const zip = await JSZip.loadAsync(file);
-            const data = await zip.file("sequence.json").async("string");
-            notes = JSON.parse(data);
-        } else if(ext === 'json') {
-            notes = JSON.parse(await file.text());
-        } else if(ext === 'xml') {
-            // XMLパース処理 (簡易版)
-            const txt = await file.text();
-            const parser = new DOMParser();
-            const xmlDoc = parser.parseFromString(txt, "text/xml");
-            const items = xmlDoc.getElementsByTagName("note");
-            notes = Array.from(items).map(i => ({
-                id: Date.now() + Math.random(),
-                hz: i.getElementsByTagName("hz")[0].textContent,
-                x: parseInt(i.getElementsByTagName("start")[0].textContent),
-                y: 1200 - parseFloat(i.getElementsByTagName("hz")[0].textContent),
-                w: parseInt(i.getElementsByTagName("duration")[0].textContent)
-            }));
-        }
-        render();
-    }
-
-    // --- エクスポート処理 ---
-    function download(blob, name) {
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = name;
-        a.click();
-    }
-
-    function exportSingle(type) {
-        let content, mime;
-        if(type === 'json') {
-            content = JSON.stringify(notes);
-            mime = 'application/json';
-        } else if(type === 'xml') {
-            content = `<?xml version="1.0"?><seq>${notes.map(n=>`<note><hz>${n.hz}</hz><start>${n.x}</start><duration>${n.w}</duration></note>`).join('')}</seq>`;
-            mime = 'text/xml';
-        }
-        download(new Blob([content], {type: mime}), `export.${type}`);
-    }
-
-    function exportHTML() {
-        const html = `<html><body><script>const notes=${JSON.stringify(notes)};/* Player Logic Here */<\/script></body></html>`;
-        download(new Blob([html], {type: 'text/html'}), "project.html");
-    }
-
-    // --- 究極のアーカイブ: .UFATSAD (ZIP) ---
+    // --- ファイル入出力（偽装バイナリ） ---
     async function exportUFATSAD() {
-        const zip = new JSZip();
-        zip.file("sequence.json", JSON.stringify(notes));
-        zip.file("readme.txt", "Tadano-Ippanzin Frequency Project Archive\nFormat: UFATSAD");
-        
-        // XMLなども同梱
-        const xml = `<seq>${notes.map(n=>`<note><hz>${n.hz}</hz></note>`).join('')}</seq>`;
-        zip.file("sequence.xml", xml);
-
-        const content = await zip.generateAsync({type:"blob"});
-        download(content, "project.ufatsad"); // 拡張子を独自のものに
+        const data = new TextEncoder().encode(JSON.stringify({notes, baseA: document.getElementById('baseA').value}));
+        const header = new TextEncoder().encode(MAGIC);
+        const out = new Uint8Array(header.length + data.length);
+        out.set(header);
+        for(let i=0; i<data.length; i++) out[header.length+i] = data[i] ^ XOR_KEY;
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([out]));
+        a.download = "project.ufatsad"; a.click();
     }
 
-    // 音声エクスポート(WAV)などは前のコードを流用...
+    async function handleDrop(e) {
+        e.preventDefault();
+        const file = e.dataTransfer.files[0];
+        const buf = new Uint8Array(await file.arrayBuffer());
+        if (new TextDecoder().decode(buf.slice(0, 7)) !== MAGIC) return;
+        const body = buf.slice(7);
+        for(let i=0; i<body.length; i++) body[i] ^= XOR_KEY;
+        const obj = JSON.parse(new TextDecoder().decode(body));
+        notes = obj.notes; document.getElementById('baseA').value = obj.baseA;
+        updateGuides(); render();
+    }
+
+    function play() {
+        if (!audioCtx) audioCtx = new AudioContext();
+        const now = audioCtx.currentTime;
+        const refA = parseFloat(document.getElementById('baseA').value);
+        notes.forEach(n => {
+            const osc = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            osc.frequency.setValueAtTime(getExactHz(refA, n.v, n.mode), now + n.x/100);
+            g.gain.setValueAtTime(0.2, now + n.x/100);
+            g.gain.setValueAtTime(0, now + (n.x+n.w)/100);
+            osc.connect(g).connect(audioCtx.destination);
+            osc.start(now + n.x/100); osc.stop(now + (n.x+n.w)/100 + 0.1);
+        });
+    }
+    function stop() { if(audioCtx) { audioCtx.close(); audioCtx = null; } }
+    updateGuides();
 </script>
 </body>
 </html>
