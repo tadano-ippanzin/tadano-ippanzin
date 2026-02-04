@@ -2,99 +2,57 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>指定周波数テストツール</title>
+    <title>指定周波数音響テスト</title>
     <style>
-        body { font-family: sans-serif; display: flex; justify-content: center; padding-top: 50px; background: #f0f2f5; }
+        body { font-family: monospace; display: flex; justify-content: center; padding-top: 50px; background: #f0f2f5; }
         .card { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); width: 320px; }
+        .calc-area { background: #eee; padding: 10px; border-radius: 6px; margin-bottom: 1.5rem; font-size: 0.8rem; }
         .field { margin-bottom: 1rem; }
         label { display: block; font-size: 0.8rem; margin-bottom: 0.3rem; color: #666; }
-        input, select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-        
-        /* 追加：12乗根計算エリア (UIを邪魔しないデザイン) */
-        .calc-area { background: #f9f9f9; padding: 10px; border: 1px dashed #bbb; border-radius: 6px; margin-bottom: 1.5rem; }
-        .calc-row { display: flex; align-items: center; gap: 5px; margin-top: 5px; }
-        .calc-row input { padding: 4px; }
-        .apply-btn { background: #666; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; cursor: pointer; margin-top: 5px; width: auto; }
-        
-        button.main-play { width: 100%; padding: 10px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        button.main-play:hover { background: #0056b3; }
+        input, select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; background: #fff; }
+        button { width: 100%; padding: 10px; background: #000; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .apply-btn { width: auto; padding: 4px 8px; margin-top: 5px; font-size: 0.7rem; }
     </style>
 </head>
 <body>
-
 <div class="card">
-    <h3 style="margin-top:0">トーンジェネレーター</h3>
-    
+    <header>音の周波数テスト<header>
     <div class="calc-area">
-        <label style="font-weight:bold; color:#333;">12乗根計算 (平均律)</label>
-        <div class="calc-row">
-            <input type="number" id="base-f" value="440" title="基準Hz">
-            <span>× 2<sup>n/12</sup></span>
-        </div>
-        <div class="calc-row">
-            <label>n(半音):</label>
-            <input type="number" id="steps" value="0" style="width:60px">
-            <button class="apply-btn" onclick="applyCalc()">Hzに適用</button>
+        <label>12乗根計算 (f = A * 2^(n/12))
+            <h6>(Aは平均律で言うラです。現代だと440、442,444が多いです(特に440)。)</h6></label>
+        <input type="number" id="base-f" value="440" placeholder="Base Hz">
+        <div style="display:flex; align-items:center; gap:5px; margin-top:5px;">
+            <label>n:</label><input type="number" id="steps" value="0" style="width:60px">
+            <button class="apply-btn" onclick="applyCalc()">Hz適用</button>
         </div>
     </div>
-
     <div class="field">
         <label>周波数 (Hz)</label>
         <input type="number" id="freq" value="440" step="0.001">
     </div>
-
     <div class="field">
-        <label>再生時間 (秒)</label>
+        <label>時間 (秒)</label>
         <input type="number" id="duration" value="1.0" step="0.1">
     </div>
-
-    <div class="field">
-        <label>波形</label>
-        <select id="type">
-            <option value="sine">サイン波</option>
-            <option value="square">矩形波</option>
-            <option value="sawtooth">のこぎり波</option>
-            <option value="triangle">三角波</option>
-        </select>
-    </div>
-
-    <button class="main-play" onclick="playTone()">再生する</button>
-</div>
-
+    <button onclick="playTone()">再生 (即時停止)</button>
 <script>
     let audioCtx = null;
-
-    // 12乗根の計算と適用
     function applyCalc() {
-        const base = parseFloat(document.getElementById('base-f').value);
-        const n = parseFloat(document.getElementById('steps').value);
-        // f = base * 2^(n/12)
-        const result = base * Math.pow(2, n / 12);
-        document.getElementById('freq').value = result.toFixed(3);
+        const res = document.getElementById('base-f').value * Math.pow(2, document.getElementById('steps').value / 12);
+        document.getElementById('freq').value = res.toFixed(3);
     }
-
     function playTone() {
-        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        
-        const freq = document.getElementById('freq').value;
-        const duration = document.getElementById('duration').value;
-        const type = document.getElementById('type').value;
-
+        if (!audioCtx) audioCtx = new AudioContext();
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
-
-        osc.type = type;
-        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-
-        gain.gain.setValueAtTime(0, audioCtx.currentTime);
-        gain.gain.linearRampToValueAtTime(0.2, audioCtx.currentTime + 0.02);
-        gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + parseFloat(duration));
-
+        osc.frequency.setValueAtTime(document.getElementById('freq').value, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
         osc.connect(gain).connect(audioCtx.destination);
         osc.start();
-        osc.stop(audioCtx.currentTime + parseFloat(duration));
+        const stopTime = audioCtx.currentTime + parseFloat(document.getElementById('duration').value);
+        gain.gain.setValueAtTime(0, stopTime);
+        osc.stop(stopTime);
     }
 </script>
-
 </body>
 </html>
