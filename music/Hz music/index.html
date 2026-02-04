@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Hz単位演奏ツール</title>
+    <style>
+        :root { --bg: #050505; --accent: #ff0000; --text: #ffffff; }
+        body { font-family: monospace; background: var(--bg); color: var(--text); margin: 0; padding: 20px; text-align: center; }
+        .dashboard { border: 2px solid var(--accent); padding: 20px; display: inline-block; background: #111; }
+        .freq-display { font-size: 3.5rem; color: var(--accent); margin: 10px 0; }
+        .slider { width: 100%; accent-color: var(--accent); }
+        .control-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; text-align: left; margin-top: 20px; }
+        input { background: #000; border: 1px solid var(--accent); color: white; padding: 5px; }
+    </style>
+</head>
+<body>
+
+<h1>Hz単位で演奏</h1>
+<p>クリックで即座に反応します。</p>
+
+<div class="dashboard">
+    <div class="freq-display" id="freq-val">440.00</div>
+    <input type="range" id="hz-slider" class="slider" min="20" max="2000" step="0.01" value="440" oninput="updateHz()">
+    
+    <div class="control-panel">
+        <div>
+            <label>Hz Offset:</label><br>
+            <input type="number" id="hz-offset" value="0" step="0.1" oninput="updateHz()">
+        </div>
+        <div>
+            <label>Harmonics:</label><br>
+            <input type="number" id="harmonics" value="1" min="1" max="10">
+        </div>
+    </div>
+    <p style="color: var(--accent); font-size: 12px; margin-top: 20px;">[SPACE] or [A,W,S,E...] to PLAY</p>
+</div>
+
+<script>
+    let audioCtx = null;
+    let activeNodes = new Map();
+
+    function updateHz() {
+        const base = parseFloat(document.getElementById('hz-slider').value);
+        const offset = parseFloat(document.getElementById('hz-offset').value);
+        const total = (base + offset).toFixed(2);
+        document.getElementById('freq-val').innerText = total;
+        activeNodes.forEach((nodes) => {
+            nodes.oscs.forEach((osc, i) => {
+                osc.frequency.setValueAtTime(total * (i + 1), audioCtx.currentTime);
+            });
+        });
+    }
+
+    window.addEventListener('keydown', (e) => {
+        const KEY_MAP = { 'a':0,'w':1,'s':2,'e':3,'d':4,'f':5,'t':6,'g':7,'y':8,'h':9,'u':10,'j':11,'k':12, ' ': 'free' };
+        if (KEY_MAP[e.key] !== undefined && !activeNodes.has(e.key)) {
+            startSound(e.key, KEY_MAP[e.key]);
+        }
+    });
+
+    window.addEventListener('keyup', (e) => {
+        if (activeNodes.has(e.key)) stopSound(e.key);
+    });
+
+    function startSound(key, pitch) {
+        if (!audioCtx) audioCtx = new AudioContext();
+        const harmCount = parseInt(document.getElementById('harmonics').value);
+        const baseHz = (pitch === 'free') 
+            ? parseFloat(document.getElementById('freq-val').innerText)
+            : 261.63 * Math.pow(2, pitch/12) + parseFloat(document.getElementById('hz-offset').value);
+
+        const oscs = [];
+        const gains = [];
+
+        for (let h = 1; h <= harmCount; h++) {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            
+            osc.frequency.setValueAtTime(baseHz * h, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.2 / h, audioCtx.currentTime);
+
+            osc.connect(gain).connect(audioCtx.destination);
+            osc.start();
+            oscs.push(osc);
+            gains.push(gain);
+        }
+        activeNodes.set(key, { oscs, gains });
+    }
+
+    function stopSound(key) {
+        const { oscs, gains } = activeNodes.get(key);
+        gains.forEach(g => g.gain.setValueAtTime(0, audioCtx.currentTime));
+        oscs.forEach(o => o.stop());
+        activeNodes.delete(key);
+    }
+</script>
+</body>
+</html>
